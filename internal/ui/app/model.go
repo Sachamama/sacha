@@ -9,7 +9,6 @@ import (
 	awsx "github.com/sachamama/sacha/internal/aws"
 	"github.com/sachamama/sacha/internal/config"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -24,9 +23,8 @@ type Model struct {
 
 	logger *zerolog.Logger
 
-	regionInput   textinput.Model
-	selectRegion  bool
-	selectService bool
+	regionSelector  optionSelector
+	serviceSelector optionSelector
 
 	width    int
 	height   int
@@ -42,8 +40,8 @@ func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime conf
 		cfg:      cfg,
 		logger:   logger,
 	}
-	m.regionInput = textinput.New()
-	m.regionInput.Placeholder = "region (e.g. us-east-1)"
+	m.regionSelector = newOptionSelector("Select Region", awsRegions)
+	m.serviceSelector = newOptionSelector("Select Service", serviceNames(services))
 	if err := m.activateService(runtime.Service); err != nil {
 		return Model{}, err
 	}
@@ -68,36 +66,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case tea.KeyMsg:
-		if m.selectRegion {
-			switch msg.Type {
-			case tea.KeyEnter:
-				m.selectRegion = false
-				region := m.regionInput.Value()
-				cmd, err := m.changeRegion(region)
-				if err != nil {
-					m.status = err.Error()
-					return m, nil
-				}
-				return m, cmd
-			case tea.KeyEscape:
-				m.selectRegion = false
-				return m, nil
-			}
-			var cmd tea.Cmd
-			m.regionInput, cmd = m.regionInput.Update(msg)
-			return m, cmd
+		if m.regionSelector.active {
+			return m.handleRegionSelector(msg)
 		}
-
-		if m.selectService {
-			switch msg.Type {
-			case tea.KeyEnter:
-				m.selectService = false
-				// Only CloudWatch Logs is available for now.
-				m.runtime.Service = "cloudwatch-logs"
-			case tea.KeyEscape:
-				m.selectService = false
-			}
-			return m, nil
+		if m.serviceSelector.active {
+			return m.handleServiceSelector(msg)
 		}
 
 		switch msg.String() {
@@ -108,11 +81,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		case "r":
-			m.selectRegion = true
-			m.regionInput.SetValue(m.runtime.Region)
-			return m, m.regionInput.Focus()
+			m.regionSelector.open(awsRegions, m.runtime.Region)
+			return m, m.regionSelector.input.Focus()
 		case "s":
-			m.selectService = true
+			m.serviceSelector.open(serviceNames(m.services), m.runtime.Service)
+			return m, m.serviceSelector.input.Focus()
 		case "?":
 			m.showHelp = !m.showHelp
 		}
@@ -129,14 +102,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	header := fmt.Sprintf("profile: %s | region: %s | service: %s", emptyIf(m.runtime.Profile, "default"), emptyIf(m.runtime.Region, "sdk-default"), m.runtime.Service)
+	if m.regionSelector.active {
+		return m.overlayView(header, m.regionSelector.View(minWidth(m.width, 60)))
+	}
+	if m.serviceSelector.active {
+		return m.overlayView(header, m.serviceSelector.View(minWidth(m.width, 60)))
+	}
 	if m.showHelp {
 		return header + "\n" + helpView()
-	}
-	if m.selectRegion {
-		return header + "\nChange region:\n" + m.regionInput.View()
-	}
-	if m.selectService {
-		return header + "\nSelect service:\n- CloudWatch Logs (current)\nPress Enter to confirm or Esc to cancel."
 	}
 	body := ""
 	if m.service != nil {
@@ -257,4 +230,38 @@ func isTailing(m tea.Model) bool {
 // Runtime exposes the current runtime configuration after user interaction.
 func (m Model) Runtime() config.RuntimeConfig {
 	return m.runtime
+}
+
+func (m Model) handleRegionSelector(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	choice, cmd := m.regionSelector.update(msg)
+	if choice != "" {
+		changeCmd, err := m.changeRegion(choice)
+		if err != nil {
+			m.status = err.Error()
+			return m, cmd
+		}
+		return m, tea.Batch(cmd, changeCmd)
+	}
+	return m, cmd
+}
+
+func (m Model) handleServiceSelector(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	choice, cmd := m.serviceSelector.update(msg)
+	if choice != "" {
+		if err := m.activateService(choice); err != nil {
+			m.status = err.Error()
+			return m, cmd
+		}
+		initCmds := []tea.Cmd{}
+		if m.service != nil {
+			initCmds = append(initCmds, m.service.Init())
+		}
+		if m.width > 0 && m.height > 0 {
+			initCmds = append(initCmds, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: m.width, Height: m.height}
+			})
+		}
+		return m, tea.Batch(append(initCmds, cmd)...)
+	}
+	return m, cmd
 }

@@ -1,17 +1,31 @@
 # sacha
 
-sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. The first release focuses on CloudWatch Logs with an extensible architecture for more AWS services.
+<a href="https://buymeacoffee.com/sachamama"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" height="36"></a>
+
+sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and tail CloudWatch Logs without bouncing between consoles. The first release focuses on CloudWatch Logs with an extensible architecture for more AWS services.
+
+## Highlights
+- Two-pane TUI for fast CloudWatch Logs exploration.
+- Search, multi-select, and tail multiple log groups at once.
+- Remembers your last region/service and plays nicely with AWS profiles.
+- Minimal dependencies; install and run with a single command.
+
+## What’s in a name?
+- `sachamama` comes from Quechua and means “mother of the forest,” which is also the username of the author.
+- `sacha` shortens the idea to “forest,” reflecting how the tool helps you see the bigger AWS landscape without getting lost in individual trees.
 
 ## Install
+
+Prerequisites: Go 1.22+ and AWS credentials that can read CloudWatch Logs.
 
 - With Go: `go install github.com/sachamama/sacha/cmd/sacha@latest`
 - From source: `make build` (binary at `bin/sacha`)
 
-## Run
+## Quickstart
 
 ```
 make run
-# or directly
+# or directly after install
 sacha --profile my-aws-profile --region us-east-1
 ```
 
@@ -21,7 +35,7 @@ Global flags:
 - `--service` – AWS service (currently only `cloudwatch-logs`)
 - `--verbose` – enable debug logging
 
-Configuration is stored at the OS config directory (e.g. `~/.config/sacha/config.json`) and records defaults plus last used region/service. Precedence: CLI flags > env (`AWS_PROFILE`, `AWS_REGION`, `AWS_DEFAULT_REGION`) > config file > AWS SDK defaults.
+Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.json`) and stores defaults plus your last used region/service. Precedence: CLI flags > env (`AWS_PROFILE`, `AWS_REGION`, `AWS_DEFAULT_REGION`) > config file > AWS SDK defaults.
 
 ## Current features (v0.1 – CloudWatch Logs)
 - Split-pane TUI: left pane lists log groups; right pane tails logs.

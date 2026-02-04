@@ -56,7 +56,6 @@ type Model struct {
 	search     textinput.Model
 	loading    bool
 	statusLine string
-
 }
 
 // NewModel creates a new S3 browser model.
@@ -695,7 +694,7 @@ func (m Model) downloadSelectedCmd() tea.Cmd {
 			return downloadCompleteMsg{err: err}
 		}
 		downloadDir := filepath.Join(cwd, "sacha-downloads")
-		if err := os.MkdirAll(downloadDir, 0755); err != nil {
+		if err := os.MkdirAll(downloadDir, 0o755); err != nil {
 			return downloadCompleteMsg{err: err}
 		}
 

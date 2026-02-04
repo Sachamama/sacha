@@ -70,11 +70,11 @@ type Model struct {
 	view         viewport.Model
 	jsonView     bool // toggle between JSON table view and plain view
 
-	fullscreen    bool  // fullscreen tail mode
-	focus         panel // which panel has focus
-	eventCursor   int   // cursor position in tail events
-	expandedEvent int   // index of expanded event, -1 if none
-	scrollX       int   // horizontal scroll offset for fullscreen
+	fullscreen    bool           // fullscreen tail mode
+	focus         panel          // which panel has focus
+	eventCursor   int            // cursor position in tail events
+	expandedEvent int            // index of expanded event, -1 if none
+	scrollX       int            // horizontal scroll offset for fullscreen
 	expandedView  viewport.Model // viewport for expanded event
 }
 
@@ -462,12 +462,6 @@ func (m Model) filteredGroups() []logs.LogGroup {
 			out = append(out, g)
 		}
 	}
-	if m.cursor >= len(out) {
-		m.cursor = len(out) - 1
-		if m.cursor < 0 {
-			m.cursor = 0
-		}
-	}
 	return out
 }
 
@@ -580,4 +574,3 @@ func (m Model) bodyHeight() int {
 	}
 	return h
 }
-

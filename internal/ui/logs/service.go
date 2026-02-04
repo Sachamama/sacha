@@ -12,8 +12,7 @@ import (
 )
 
 // CloudWatchLogsService wires the CloudWatch Logs UI to the service registry.
-type CloudWatchLogsService struct {
-}
+type CloudWatchLogsService struct{}
 
 func (CloudWatchLogsService) Name() string {
 	return "cloudwatch-logs"

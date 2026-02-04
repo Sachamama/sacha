@@ -21,15 +21,15 @@ const (
 
 // optionSelector is a lightweight searchable picker used for region/service selection.
 type optionSelector struct {
-	title      string
-	items      []string // all items
-	commonSet  []string // common items subset (optional)
-	filtered   []string
-	cursor     int
-	active     bool
-	input      textinput.Model
-	viewMode   viewMode
-	hasViews   bool // whether this selector supports view switching
+	title     string
+	items     []string // all items
+	commonSet []string // common items subset (optional)
+	filtered  []string
+	cursor    int
+	active    bool
+	input     textinput.Model
+	viewMode  viewMode
+	hasViews  bool // whether this selector supports view switching
 }
 
 func newOptionSelector(title string, items []string) optionSelector {

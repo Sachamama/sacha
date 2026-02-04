@@ -144,8 +144,8 @@ func renderEventsPlain(events []logs.TailEvent, cursor int, width int, showCurso
 	// Calculate column widths
 	timeWidth := 25 // RFC3339 format
 	groupWidth := 20
-	separators := 6  // " | " twice
-	pointer := 1     // "▶" or " "
+	separators := 6 // " | " twice
+	pointer := 1    // "▶" or " "
 	msgWidth := width - timeWidth - groupWidth - separators - pointer
 	if msgWidth < 20 {
 		msgWidth = 20
@@ -234,8 +234,8 @@ func renderEventsTable(events []logs.TailEvent, keys []string, cursor int, width
 	}
 
 	// Calculate available width (subtract pointer, separators, padding)
-	pointer := 2                        // "▶ " or "  "
-	separators := (numCols - 1) * 3     // " │ " between columns
+	pointer := 2                                       // "▶ " or "  "
+	separators := (numCols - 1) * 3                    // " │ " between columns
 	availableWidth := width - pointer - separators - 2 // 2 for safety margin
 
 	// Distribute width: fixed columns first, then expand flexible ones
@@ -275,7 +275,7 @@ func renderEventsTable(events []logs.TailEvent, keys []string, cursor int, width
 	fmt.Fprintln(&b)
 
 	// Header row
-	var headerParts []string
+	headerParts := make([]string, 0, len(columns))
 	for i, col := range columns {
 		headerParts = append(headerParts, padRight(col, colWidths[i]))
 	}

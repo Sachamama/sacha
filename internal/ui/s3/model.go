@@ -637,10 +637,14 @@ func (m Model) downloadSelectedCmd() tea.Cmd {
 		if err != nil {
 			return downloadCompleteMsg{err: err}
 		}
+		downloadDir := filepath.Join(cwd, "sacha-downloads")
+		if err := os.MkdirAll(downloadDir, 0755); err != nil {
+			return downloadCompleteMsg{err: err}
+		}
 		var lastPath string
 		for _, key := range keys {
 			name := extractDisplayName(key)
-			destPath := filepath.Join(cwd, name)
+			destPath := filepath.Join(downloadDir, name)
 			if err := m.client.DownloadObject(ctx, bucket, key, destPath); err != nil {
 				return downloadCompleteMsg{err: err}
 			}
@@ -649,7 +653,7 @@ func (m Model) downloadSelectedCmd() tea.Cmd {
 		if len(keys) == 1 {
 			return downloadCompleteMsg{path: lastPath}
 		}
-		return downloadCompleteMsg{path: fmt.Sprintf("%d files", len(keys))}
+		return downloadCompleteMsg{path: fmt.Sprintf("%d files to sacha-downloads/", len(keys))}
 	}
 }
 

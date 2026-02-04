@@ -1,6 +1,9 @@
 package s3
 
-import "github.com/sachamama/sacha/internal/s3"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/sachamama/sacha/internal/s3"
+)
 
 // bucketsLoadedMsg is sent when bucket listing completes.
 type bucketsLoadedMsg struct {
@@ -47,6 +50,22 @@ type previewLoadedMsg struct {
 type downloadCompleteMsg struct {
 	path string
 	err  error
+}
+
+// downloadStartedMsg is sent when download begins with the progress channel.
+type downloadStartedMsg struct {
+	ch <-chan tea.Msg
+}
+
+// downloadProgressMsg is sent during download to update progress.
+type downloadProgressMsg struct {
+	currentFile     string
+	fileIndex       int
+	totalFiles      int
+	bytesWritten    int64
+	totalBytes      int64
+	totalDownloaded int64
+	grandTotal      int64
 }
 
 // bucketRegionMsg is sent when bucket region is fetched.

@@ -60,7 +60,7 @@ func DefaultPath() (string, error) {
 
 // Load reads the config file if present; a missing file is not an error.
 func Load(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path is user-provided config path
 	if errors.Is(err, os.ErrNotExist) {
 		return &Config{}, nil
 	}
@@ -78,7 +78,7 @@ func Load(path string) (*Config, error) {
 // Save persists the config to disk, creating directories as needed.
 func Save(path string, cfg *Config) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 

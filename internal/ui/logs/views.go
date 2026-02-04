@@ -284,7 +284,7 @@ func renderEventsTable(events []logs.TailEvent, keys []string, cursor, width int
 
 	// Data rows
 	for i, r := range rows {
-		var rowParts []string
+		rowParts := make([]string, 0, len(r.cells))
 		for j, cell := range r.cells {
 			rowParts = append(rowParts, padRight(truncate(cell, colWidths[j]), colWidths[j]))
 		}

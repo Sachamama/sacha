@@ -234,8 +234,16 @@ func (c *Client) GetObjectPreview(ctx context.Context, bucket, key string, maxBy
 	return data, aws.ToString(out.ContentType), nil
 }
 
+// ProgressFunc is called during download with bytes written and total size.
+type ProgressFunc func(bytesWritten, totalBytes int64)
+
 // DownloadObject downloads an object to the specified destination path.
 func (c *Client) DownloadObject(ctx context.Context, bucket, key, destPath string) error {
+	return c.DownloadObjectWithProgress(ctx, bucket, key, destPath, nil)
+}
+
+// DownloadObjectWithProgress downloads an object with progress reporting.
+func (c *Client) DownloadObjectWithProgress(ctx context.Context, bucket, key, destPath string, progress ProgressFunc) error {
 	api, err := c.getClientForBucket(ctx, bucket)
 	if err != nil {
 		return err
@@ -252,17 +260,47 @@ func (c *Client) DownloadObject(ctx context.Context, bucket, key, destPath strin
 
 	// Ensure the destination directory exists
 	dir := filepath.Dir(destPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	f, err := os.Create(destPath)
+	f, err := os.Create(destPath) //nolint:gosec // G304: destPath is user-specified download location
 	if err != nil {
 		return fmt.Errorf("create file: %w", err)
 	}
-	if _, err := io.Copy(f, out.Body); err != nil {
+
+	totalSize := aws.ToInt64(out.ContentLength)
+	var written int64
+
+	// Use a progress writer if callback provided
+	var writeErr error
+	if progress != nil {
+		buf := make([]byte, 32*1024) // 32KB buffer
+		for {
+			n, readErr := out.Body.Read(buf)
+			if n > 0 {
+				nw, err := f.Write(buf[:n])
+				if err != nil {
+					writeErr = err
+					break
+				}
+				written += int64(nw)
+				progress(written, totalSize)
+			}
+			if readErr != nil {
+				if readErr != io.EOF {
+					writeErr = readErr
+				}
+				break
+			}
+		}
+	} else {
+		_, writeErr = io.Copy(f, out.Body)
+	}
+
+	if writeErr != nil {
 		_ = f.Close()
-		return fmt.Errorf("write file: %w", err)
+		return fmt.Errorf("write file: %w", writeErr)
 	}
 
 	return f.Close()

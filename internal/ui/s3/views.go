@@ -35,6 +35,17 @@ var (
 
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196"))
+
+	progressBarStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("213"))
+
+	progressFillStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("213")).
+				Background(lipgloss.Color("213"))
+
+	progressEmptyStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("238")).
+				Background(lipgloss.Color("238"))
 )
 
 func (m Model) renderLeft() string {
@@ -76,6 +87,12 @@ func (m Model) renderLeft() string {
 
 	if m.statusLine != "" {
 		fmt.Fprintf(b, "%s\n", statusStyle.Render(m.statusLine))
+	}
+
+	// Download progress bar
+	if m.downloading {
+		fmt.Fprintln(b)
+		fmt.Fprintln(b, m.renderProgressBar())
 	}
 
 	return b.String()
@@ -249,6 +266,38 @@ func (m Model) renderRight() string {
 			fmt.Fprintln(b, dimText.Render("Press p to preview"))
 		}
 	}
+
+	return b.String()
+}
+
+func (m Model) renderProgressBar() string {
+	b := &strings.Builder{}
+
+	// File progress
+	fileInfo := fmt.Sprintf("Downloading %d/%d: %s", m.downloadIndex, m.downloadTotal, m.downloadFile)
+	fmt.Fprintln(b, progressBarStyle.Render(fileInfo))
+
+	// Calculate percentage
+	var percent float64
+	if m.downloadGrand > 0 {
+		percent = float64(m.downloadedBytes) / float64(m.downloadGrand) * 100
+	}
+
+	// Progress bar width (leave room for percentage text and borders)
+	barWidth := 30
+	filled := min(int(percent/100*float64(barWidth)), barWidth)
+
+	// Build the bar
+	bar := progressFillStyle.Render(strings.Repeat("█", filled)) +
+		progressEmptyStyle.Render(strings.Repeat("░", barWidth-filled))
+
+	// Format progress info
+	progressInfo := fmt.Sprintf(" %s / %s (%.0f%%)",
+		formatSize(m.downloadedBytes),
+		formatSize(m.downloadGrand),
+		percent)
+
+	fmt.Fprintln(b, bar+progressInfo)
 
 	return b.String()
 }

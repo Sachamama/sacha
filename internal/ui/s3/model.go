@@ -56,6 +56,17 @@ type Model struct {
 	search     textinput.Model
 	loading    bool
 	statusLine string
+
+	// Download progress
+	downloading     bool
+	downloadChan    <-chan tea.Msg
+	downloadFile    string
+	downloadIndex   int
+	downloadTotal   int
+	downloadBytes   int64
+	downloadSize    int64
+	downloadedBytes int64
+	downloadGrand   int64
 }
 
 // NewModel creates a new S3 browser model.
@@ -178,7 +189,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.previewView.SetContent(string(msg.content))
 		}
 
+	case downloadStartedMsg:
+		m.downloading = true
+		m.downloadChan = msg.ch
+		return m, listenForProgress(msg.ch)
+
+	case downloadProgressMsg:
+		m.downloading = true
+		m.downloadFile = msg.currentFile
+		m.downloadIndex = msg.fileIndex
+		m.downloadTotal = msg.totalFiles
+		m.downloadBytes = msg.bytesWritten
+		m.downloadSize = msg.totalBytes
+		m.downloadedBytes = msg.totalDownloaded
+		m.downloadGrand = msg.grandTotal
+		return m, listenForProgress(m.downloadChan)
+
 	case downloadCompleteMsg:
+		m.downloading = false
+		m.downloadChan = nil
 		if msg.err != nil {
 			m.statusLine = "Download failed: " + msg.err.Error()
 		} else {
@@ -687,53 +716,122 @@ func (m Model) downloadSelectedCmd() tea.Cmd {
 		}
 	}
 
-	return func() tea.Msg {
+	// Create a channel for progress updates
+	progressChan := make(chan tea.Msg, 100)
+
+	// Start download in background
+	go func() {
+		defer close(progressChan)
+
 		ctx := context.Background()
 		cwd, err := os.Getwd()
 		if err != nil {
-			return downloadCompleteMsg{err: err}
+			progressChan <- downloadCompleteMsg{err: err}
+			return
 		}
 		downloadDir := filepath.Join(cwd, "sacha-downloads")
-		if err := os.MkdirAll(downloadDir, 0o755); err != nil {
-			return downloadCompleteMsg{err: err}
+		if err := os.MkdirAll(downloadDir, 0o750); err != nil {
+			progressChan <- downloadCompleteMsg{err: err}
+			return
 		}
 
-		downloadedCount := 0
+		// Build list of all files to download
+		type downloadItem struct {
+			key      string
+			destPath string
+			size     int64
+		}
+		var items []downloadItem
 
-		// Download individual files
+		// Add individual files
 		for _, key := range files {
 			name := extractDisplayName(key)
 			destPath := filepath.Join(downloadDir, name)
-			if err := client.DownloadObject(ctx, bucket, key, destPath); err != nil {
-				return downloadCompleteMsg{err: err}
-			}
-			downloadedCount++
+			items = append(items, downloadItem{key: key, destPath: destPath})
 		}
 
-		// Download folders recursively
+		// Add folder contents
 		for _, folderKey := range folders {
-			// List all objects in the folder recursively
 			folderObjects, err := client.ListAllObjects(ctx, bucket, folderKey)
 			if err != nil {
-				return downloadCompleteMsg{err: err}
+				progressChan <- downloadCompleteMsg{err: err}
+				return
 			}
-
 			folderName := strings.TrimSuffix(extractDisplayName(folderKey), "/")
 			for _, obj := range folderObjects {
-				// Preserve folder structure: remove the folder prefix and keep relative path
 				relativePath := strings.TrimPrefix(obj.Key, folderKey)
 				destPath := filepath.Join(downloadDir, folderName, relativePath)
-				if err := client.DownloadObject(ctx, bucket, obj.Key, destPath); err != nil {
-					return downloadCompleteMsg{err: err}
-				}
-				downloadedCount++
+				items = append(items, downloadItem{key: obj.Key, destPath: destPath, size: obj.Size})
 			}
 		}
 
-		if downloadedCount == 1 {
-			return downloadCompleteMsg{path: "1 file to sacha-downloads/"}
+		if len(items) == 0 {
+			progressChan <- downloadCompleteMsg{path: "No files to download"}
+			return
 		}
-		return downloadCompleteMsg{path: fmt.Sprintf("%d files to sacha-downloads/", downloadedCount)}
+
+		// Calculate total size (approximate for files without size info)
+		var grandTotal int64
+		for _, item := range items {
+			grandTotal += item.size
+		}
+
+		var totalDownloaded int64
+		for i, item := range items {
+			fileName := extractDisplayName(item.key)
+
+			// Send initial progress for this file
+			progressChan <- downloadProgressMsg{
+				currentFile:     fileName,
+				fileIndex:       i + 1,
+				totalFiles:      len(items),
+				bytesWritten:    0,
+				totalBytes:      item.size,
+				totalDownloaded: totalDownloaded,
+				grandTotal:      grandTotal,
+			}
+
+			var fileBytes int64
+			err := client.DownloadObjectWithProgress(ctx, bucket, item.key, item.destPath, func(written, total int64) {
+				fileBytes = written
+				progressChan <- downloadProgressMsg{
+					currentFile:     fileName,
+					fileIndex:       i + 1,
+					totalFiles:      len(items),
+					bytesWritten:    written,
+					totalBytes:      total,
+					totalDownloaded: totalDownloaded + written,
+					grandTotal:      grandTotal,
+				}
+			})
+			if err != nil {
+				progressChan <- downloadCompleteMsg{err: err}
+				return
+			}
+			totalDownloaded += fileBytes
+		}
+
+		if len(items) == 1 {
+			progressChan <- downloadCompleteMsg{path: "1 file to sacha-downloads/"}
+		} else {
+			progressChan <- downloadCompleteMsg{path: fmt.Sprintf("%d files to sacha-downloads/", len(items))}
+		}
+	}()
+
+	// Return command that sends the channel to the model, which starts listening
+	return func() tea.Msg {
+		return downloadStartedMsg{ch: progressChan}
+	}
+}
+
+// listenForProgress returns a command that listens for the next progress message.
+func listenForProgress(ch <-chan tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		msg, ok := <-ch
+		if !ok {
+			return nil
+		}
+		return msg
 	}
 }
 

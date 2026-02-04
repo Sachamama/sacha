@@ -22,6 +22,21 @@ Prerequisites: Go 1.22+ and AWS credentials that can read CloudWatch Logs.
 - With Go: `go install github.com/sachamama/sacha/cmd/sacha@latest`
 - From source: `make build` (binary at `bin/sacha`)
 
+## Update
+
+To update sacha to the latest version, run the same install command:
+
+```
+go install github.com/sachamama/sacha/cmd/sacha@latest
+```
+
+If you installed from source, pull the latest changes and rebuild:
+
+```
+git pull
+make build
+```
+
 ## Quickstart
 
 ```

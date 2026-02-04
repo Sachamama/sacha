@@ -2,11 +2,12 @@
 
 <a href="https://buymeacoffee.com/sachamama"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" height="36"></a>
 
-sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and tail CloudWatch Logs without bouncing between consoles. The first release focuses on CloudWatch Logs with an extensible architecture for more AWS services.
+sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs and S3, with an extensible architecture for more AWS services.
 
 ## Highlights
-- Two-pane TUI for fast CloudWatch Logs exploration.
-- Search, multi-select, and tail multiple log groups at once.
+- Two-pane TUI for fast AWS resource exploration.
+- **CloudWatch Logs**: Search, multi-select, and tail multiple log groups. JSON logs auto-format as tables.
+- **S3**: Browse buckets, download/delete files, preview text content.
 - Remembers your last region/service and plays nicely with AWS profiles.
 - Minimal dependencies; install and run with a single command.
 
@@ -32,27 +33,78 @@ sacha --profile my-aws-profile --region us-east-1
 Global flags:
 - `--profile` – AWS profile to use
 - `--region` – AWS region
-- `--service` – AWS service (currently only `cloudwatch-logs`)
+- `--service` – AWS service (`cloudwatch-logs`, `s3`)
 - `--verbose` – enable debug logging
 
 Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.json`) and stores defaults plus your last used region/service. Precedence: CLI flags > env (`AWS_PROFILE`, `AWS_REGION`, `AWS_DEFAULT_REGION`) > config file > AWS SDK defaults.
 
-## Current features (v0.1 – CloudWatch Logs)
+## Features
+
+### CloudWatch Logs
 - Split-pane TUI: left pane lists log groups; right pane tails logs.
-- Log group list with search (`/`), cursor navigation (arrows or `j`/`k`), space to toggle selection, `a` to select all.
-- Start tailing selected log groups with `t`; combined stream shows timestamp, group, and message.
-- Region switch with `r`; service switch scaffold with `s` (CloudWatch Logs available today).
-- Help overlay with `?`; quit with `q` or `Ctrl+C`.
+- Log group list with search (`/`), cursor navigation, multi-select.
+- Create new log groups with `c`.
+- Tail multiple log groups simultaneously with `t`.
+- Switch between left (groups) and right (tail) panels with `tab`, `left/h`, or `right/l`.
+- Focused panel highlighted with colored border; up/down navigation works within focused panel.
+- Dynamic log refresh: logs automatically refresh when log group selection changes while tailing (press `space` or `a` on groups panel).
+- JSON log detection with automatic table view displaying TIME, GROUP, and JSON fields.
+- Table uses full available width with proper padding; last column expands to fill space.
+- Toggle between table and plain view with `v`.
+- Navigate log events with arrows and expand to see full message (pretty-printed JSON) with scrollable view.
+- Stop tailing with `x` to reset the log panel and return to group selection.
+- Fullscreen tail mode with `f`; use left/right arrows or `h/l` to scroll horizontally for wide log lines.
+
+### S3
+- Browse buckets and objects in a two-pane interface.
+- Navigate into folders, go back with `esc`/`backspace`.
+- Multi-select files for batch operations.
+- Download files with `d`, delete with `D`.
+- Preview text files with `p`.
+- Copy S3 URI to clipboard with `y`.
 
 ## Keybindings
-- Navigation: arrows / `j` `k`
-- Search: `/`
-- Select: `space` (toggle), `a` (select all)
-- Tail: `t` (start), `q`/`Esc` while tailing to stop
-- Region: `r`
-- Service: `s`
-- Help: `?`
-- Quit: `Ctrl+C`
+
+### Global
+| Key | Action |
+|-----|--------|
+| `r` | Change region |
+| `s` | Change service |
+| `Ctrl+C` | Quit |
+
+### CloudWatch Logs
+| Key | Action |
+|-----|--------|
+| `↑/↓` or `j/k` | Navigate |
+| `/` | Search/filter |
+| `space` | Toggle selection |
+| `a` | Select all |
+| `c` | Create log group |
+| `t` | Start tailing |
+| `tab`, `left/h`, `right/l` | Switch panel focus (while tailing) |
+| `enter/space` | Expand log event (while tailing) |
+| `↑/↓` or `j/k` | Scroll in expanded view |
+| `pgup/pgdn` | Page scroll in expanded view |
+| `esc` | Close expanded view |
+| `v` | Toggle table/plain view (while tailing) |
+| `x` | Stop tailing |
+| `f` | Toggle fullscreen (while tailing) |
+| `←/→` or `h/l` | Scroll horizontally (fullscreen only) |
+| `q/esc` | Stop tailing |
+
+### S3
+| Key | Action |
+|-----|--------|
+| `↑/↓` or `j/k` | Navigate |
+| `/` | Search/filter |
+| `enter` | Open bucket/folder |
+| `space` | Toggle selection |
+| `a` | Select all |
+| `d` | Download |
+| `D` | Delete |
+| `p` | Preview text file |
+| `y` | Copy S3 URI |
+| `esc/backspace` | Go back |
 
 ## Development
 

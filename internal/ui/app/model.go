@@ -26,10 +26,9 @@ type Model struct {
 	regionSelector  optionSelector
 	serviceSelector optionSelector
 
-	width    int
-	height   int
-	showHelp bool
-	status   string
+	width  int
+	height int
+	status string
 }
 
 func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime config.RuntimeConfig, cfg sdkaws.Config, logger *zerolog.Logger) (Model, error) {
@@ -40,7 +39,7 @@ func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime conf
 		cfg:      cfg,
 		logger:   logger,
 	}
-	m.regionSelector = newOptionSelector("Select Region", awsRegions)
+	m.regionSelector = newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
 	m.serviceSelector = newOptionSelector("Select Service", serviceNames(services))
 	if err := m.activateService(runtime.Service); err != nil {
 		return Model{}, err
@@ -86,8 +85,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			m.serviceSelector.open(serviceNames(m.services), m.runtime.Service)
 			return m, m.serviceSelector.input.Focus()
-		case "?":
-			m.showHelp = !m.showHelp
 		}
 	}
 
@@ -108,16 +105,16 @@ func (m Model) View() string {
 	if m.serviceSelector.active {
 		return m.overlayView(header, m.serviceSelector.View(minWidth(m.width, 60)))
 	}
-	if m.showHelp {
-		return header + "\n" + helpView()
-	}
 	body := ""
 	if m.service != nil {
 		body = m.service.View()
 	}
 	status := m.status
 	if status == "" {
-		status = "Keys: arrows/jk move, / search, space select, a select all, t tail, r region, s service, ? help, q stop tail, ctrl+c quit"
+		status = getStatusHelp(m.service)
+	}
+	if status == "" {
+		status = "r region, s service, ctrl+c quit"
 	}
 	return fmt.Sprintf("%s\n%s\n%s", header, body, status)
 }
@@ -158,10 +155,6 @@ func (m *Model) changeRegion(region string) (tea.Cmd, error) {
 		})
 	}
 	return tea.Batch(cmds...), nil
-}
-
-func helpView() string {
-	return "Navigation: arrows/j/k | Search: / | Select: space, a | Actions: t tail, r region, s service | Tail stop: q or esc | Quit app: ctrl+c"
 }
 
 func emptyIf(value, fallback string) string {
@@ -225,6 +218,17 @@ func isTailing(m tea.Model) bool {
 		return t.Tailing()
 	}
 	return false
+}
+
+type statusProvider interface {
+	StatusHelp() string
+}
+
+func getStatusHelp(m tea.Model) string {
+	if s, ok := m.(statusProvider); ok {
+		return s.StatusHelp()
+	}
+	return ""
 }
 
 // Runtime exposes the current runtime configuration after user interaction.

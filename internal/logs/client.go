@@ -13,6 +13,7 @@ import (
 type CloudWatchLogsAPI interface {
 	DescribeLogGroups(ctx context.Context, params *cloudwatchlogs.DescribeLogGroupsInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.DescribeLogGroupsOutput, error)
 	FilterLogEvents(ctx context.Context, params *cloudwatchlogs.FilterLogEventsInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.FilterLogEventsOutput, error)
+	CreateLogGroup(ctx context.Context, params *cloudwatchlogs.CreateLogGroupInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.CreateLogGroupOutput, error)
 }
 
 type Client struct {
@@ -58,6 +59,17 @@ func (c *Client) ListLogGroups(ctx context.Context, nextToken *string) ([]LogGro
 	}
 
 	return groups, out.NextToken, nil
+}
+
+// CreateLogGroup creates a new log group with the given name.
+func (c *Client) CreateLogGroup(ctx context.Context, name string) error {
+	_, err := c.api.CreateLogGroup(ctx, &cloudwatchlogs.CreateLogGroupInput{
+		LogGroupName: aws.String(name),
+	})
+	if err != nil {
+		return fmt.Errorf("create log group: %w", err)
+	}
+	return nil
 }
 
 // FetchEvents pulls events from the provided log groups and returns them ordered by timestamp.

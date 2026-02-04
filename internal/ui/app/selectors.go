@@ -11,14 +11,25 @@ import (
 	awsx "github.com/sachamama/sacha/internal/aws"
 )
 
+// viewMode represents the current view in a selector with multiple views.
+type viewMode int
+
+const (
+	viewCommon viewMode = iota
+	viewAll
+)
+
 // optionSelector is a lightweight searchable picker used for region/service selection.
 type optionSelector struct {
-	title    string
-	items    []string
-	filtered []string
-	cursor   int
-	active   bool
-	input    textinput.Model
+	title      string
+	items      []string // all items
+	commonSet  []string // common items subset (optional)
+	filtered   []string
+	cursor     int
+	active     bool
+	input      textinput.Model
+	viewMode   viewMode
+	hasViews   bool // whether this selector supports view switching
 }
 
 func newOptionSelector(title string, items []string) optionSelector {
@@ -32,9 +43,28 @@ func newOptionSelector(title string, items []string) optionSelector {
 	}
 }
 
+func newOptionSelectorWithViews(title string, items, common []string) optionSelector {
+	in := textinput.New()
+	in.Placeholder = "type to filter"
+	return optionSelector{
+		title:     title,
+		items:     items,
+		commonSet: common,
+		filtered:  append([]string{}, common...),
+		input:     in,
+		viewMode:  viewCommon,
+		hasViews:  true,
+	}
+}
+
 func (s *optionSelector) open(items []string, current string) {
 	s.items = append([]string{}, items...)
-	s.filtered = append([]string{}, items...)
+	if s.hasViews {
+		s.viewMode = viewCommon
+		s.filtered = append([]string{}, s.commonSet...)
+	} else {
+		s.filtered = append([]string{}, items...)
+	}
 	s.cursor = 0
 	for i, v := range s.filtered {
 		if v == current {
@@ -44,6 +74,25 @@ func (s *optionSelector) open(items []string, current string) {
 	}
 	s.input.SetValue("")
 	s.active = true
+}
+
+func (s *optionSelector) currentViewItems() []string {
+	if !s.hasViews || s.viewMode == viewAll {
+		return s.items
+	}
+	return s.commonSet
+}
+
+func (s *optionSelector) switchView() {
+	if !s.hasViews {
+		return
+	}
+	if s.viewMode == viewCommon {
+		s.viewMode = viewAll
+	} else {
+		s.viewMode = viewCommon
+	}
+	s.applyFilter()
 }
 
 func (s *optionSelector) update(msg tea.KeyMsg) (string, tea.Cmd) {
@@ -63,6 +112,9 @@ func (s *optionSelector) update(msg tea.KeyMsg) (string, tea.Cmd) {
 		if s.cursor < len(s.filtered)-1 {
 			s.cursor++
 		}
+	case tea.KeyTab:
+		s.switchView()
+		return "", nil
 	}
 	var cmd tea.Cmd
 	prev := s.input.Value()
@@ -76,7 +128,8 @@ func (s *optionSelector) update(msg tea.KeyMsg) (string, tea.Cmd) {
 func (s *optionSelector) applyFilter() {
 	q := strings.ToLower(s.input.Value())
 	s.filtered = s.filtered[:0]
-	for _, item := range s.items {
+	source := s.currentViewItems()
+	for _, item := range source {
 		if strings.Contains(strings.ToLower(item), q) {
 			s.filtered = append(s.filtered, item)
 		}
@@ -99,6 +152,24 @@ func (s optionSelector) View(width int) string {
 	box := lipgloss.NewStyle().Width(width).Padding(1).Border(lipgloss.RoundedBorder())
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n\n", s.title)
+
+	// Render view tabs if this selector has views
+	if s.hasViews {
+		activeTab := lipgloss.NewStyle().Bold(true).Underline(true)
+		inactiveTab := lipgloss.NewStyle().Faint(true)
+
+		commonLabel := "Common"
+		allLabel := "All"
+		if s.viewMode == viewCommon {
+			commonLabel = activeTab.Render(commonLabel)
+			allLabel = inactiveTab.Render(allLabel)
+		} else {
+			commonLabel = inactiveTab.Render(commonLabel)
+			allLabel = activeTab.Render(allLabel)
+		}
+		fmt.Fprintf(&b, "[ %s | %s ]  (Tab to switch)\n\n", commonLabel, allLabel)
+	}
+
 	fmt.Fprintf(&b, "%s\n\n", s.input.View())
 	if len(s.filtered) == 0 {
 		fmt.Fprintln(&b, "No matches")
@@ -149,6 +220,12 @@ var awsRegions = []string{
 	"eu-west-3", "eu-north-1", "eu-south-1", "eu-south-2",
 	"il-central-1", "me-south-1", "me-central-1",
 	"sa-east-1", "us-east-1", "us-east-2", "us-west-1", "us-west-2",
+}
+
+var commonRegions = []string{
+	"us-east-1", "us-east-2", "us-west-1", "us-west-2",
+	"eu-west-1", "eu-central-1",
+	"ap-southeast-1", "ap-northeast-1",
 }
 
 func serviceNames(svcs map[string]awsx.Service) []string {

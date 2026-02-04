@@ -11,6 +11,7 @@ import (
 	"github.com/sachamama/sacha/internal/config"
 	appui "github.com/sachamama/sacha/internal/ui/app"
 	logsui "github.com/sachamama/sacha/internal/ui/logs"
+	s3ui "github.com/sachamama/sacha/internal/ui/s3"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -85,6 +86,7 @@ func run(ctx context.Context, flags cliFlags) error {
 
 	services := map[string]awsx.Service{
 		"cloudwatch-logs": logsui.CloudWatchLogsService{},
+		"s3":              s3ui.S3Service{},
 	}
 
 	appModel, err := appui.NewModel(loader, services, runtime, awsCfg, &log.Logger)

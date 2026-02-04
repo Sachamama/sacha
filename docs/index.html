@@ -10,6 +10,14 @@
     <meta property="og:description" content="Browse, search, and manage AWS resources directly from your terminal.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://sachamama.github.io/sacha/">
+    <meta property="og:image" content="https://sachamama.github.io/sacha/images/social.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Sacha - Keyboard-first AWS TUI">
+    <meta name="twitter:description" content="A terminal-native guardian for AWS observability">
+    <meta name="twitter:image" content="https://sachamama.github.io/sacha/images/social.png">
+    <link rel="icon" type="image/png" href="images/schamama-profile.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -79,12 +87,13 @@
         .logo-icon {
             width: 32px;
             height: 32px;
-            background: linear-gradient(135deg, var(--green), var(--accent));
             border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
+        }
+
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .nav-links {
@@ -114,6 +123,20 @@
         .hero {
             padding: 100px 0 80px;
             text-align: center;
+        }
+
+        .hero-banner {
+            max-width: 700px;
+            margin: 0 auto 40px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .hero-banner img {
+            width: 100%;
+            height: auto;
+            display: block;
         }
 
         .hero h1 {
@@ -491,7 +514,7 @@
     <header>
         <nav class="container">
             <a href="#" class="logo">
-                <div class="logo-icon">S</div>
+                <div class="logo-icon"><img src="images/schamama-profile.png" alt="Sacha logo"></div>
                 sacha
             </a>
             <ul class="nav-links">
@@ -513,6 +536,9 @@
     <main>
         <section class="hero">
             <div class="container">
+                <div class="hero-banner">
+                    <img src="images/social.png" alt="Sacha - A terminal-native guardian for AWS observability">
+                </div>
                 <h1>Keyboard-first AWS TUI</h1>
                 <p class="subtitle">
                     Browse, search, and manage AWS resources directly from your terminal.

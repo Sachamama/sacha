@@ -7,7 +7,7 @@ sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It
 ## Highlights
 - Two-pane TUI for fast AWS resource exploration.
 - **CloudWatch Logs**: Search, multi-select, and tail multiple log groups. JSON logs auto-format as tables.
-- **S3**: Browse buckets, download/delete files, preview text content.
+- **S3**: Browse buckets, download files and folders recursively, preview text content.
 - Remembers your last region/service and plays nicely with AWS profiles.
 - Minimal dependencies; install and run with a single command.
 
@@ -122,10 +122,13 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 ### S3
 - Browse buckets and objects in a two-pane interface.
 - Navigate into folders, go back with `esc`/`backspace`.
-- Multi-select files for batch operations.
-- Download files with `d`, delete with `D`.
+- Multi-select files and folders for batch operations.
+- Download files and folders recursively with `d`.
+- Lazy loading with pagination (loads more items as you scroll).
+- Select all items including paginated results with `A`.
 - Preview text files with `p`.
 - Copy S3 URI to clipboard with `y`.
+- Downloads saved to `./sacha-downloads/` preserving folder structure.
 
 ## Keybindings
 
@@ -162,10 +165,10 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 | `↑/↓` or `j/k` | Navigate |
 | `/` | Search/filter |
 | `enter` | Open bucket/folder |
-| `space` | Toggle selection |
-| `a` | Select all |
-| `d` | Download |
-| `D` | Delete |
+| `space` | Toggle selection (files and folders) |
+| `a` | Toggle all (current page) |
+| `A` | Load all pages and select all |
+| `d` | Download (folders downloaded recursively) |
 | `p` | Preview text file |
 | `y` | Copy S3 URI |
 | `esc/backspace` | Go back |

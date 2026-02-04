@@ -160,13 +160,13 @@ Resolution precedence:
 - `y` - Copy S3 URI
 
 **Objects View (inside bucket)**
-- `↑/↓` or `j/k` - Navigate
+- `↑/↓` or `j/k` - Navigate (lazy loads more items near end)
 - `/` - Search/filter
 - `enter` - Open folder
-- `space` - Toggle selection
-- `a` - Select all
-- `d` - Download selected
-- `D` - Delete selected (with confirmation)
+- `space` - Toggle selection (files and folders)
+- `a` - Toggle all (current page)
+- `A` - Load all pages and select all
+- `d` - Download selected (folders downloaded recursively to `./sacha-downloads/`)
 - `p` - Preview text file
 - `y` - Copy S3 URI
 - `esc/backspace/h` - Go back
@@ -174,7 +174,3 @@ Resolution precedence:
 **Preview Mode**
 - `↑/↓` - Scroll
 - `p/esc` - Close preview
-
-**Delete Confirmation**
-- `y` - Confirm
-- `n/esc` - Cancel

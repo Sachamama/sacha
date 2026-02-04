@@ -1,0 +1,29 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - errorlint
+    - gofumpt
+    - gosec
+    - misspell
+    - prealloc
+    - unconvert
+    - unparam
+
+linters-settings:
+  gofumpt:
+    extra-rules: true
+  gosec:
+    excludes:
+      - G104 # unhandled errors (too noisy for TUI apps)
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck

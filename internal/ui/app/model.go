@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	awsx "github.com/sachamama/sacha/internal/aws"
 	"github.com/sachamama/sacha/internal/config"
+	"github.com/sachamama/sacha/internal/version"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -116,7 +117,8 @@ func (m Model) View() string {
 	if status == "" {
 		status = "r region, s service, ctrl+c quit"
 	}
-	return fmt.Sprintf("%s\n%s\n%s", header, body, status)
+	footer := fmt.Sprintf("%s │ %s", status, version.Short())
+	return fmt.Sprintf("%s\n%s\n%s", header, body, footer)
 }
 
 func (m *Model) activateService(name string) error {

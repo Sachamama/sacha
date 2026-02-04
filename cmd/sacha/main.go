@@ -12,6 +12,7 @@ import (
 	appui "github.com/sachamama/sacha/internal/ui/app"
 	logsui "github.com/sachamama/sacha/internal/ui/logs"
 	s3ui "github.com/sachamama/sacha/internal/ui/s3"
+	"github.com/sachamama/sacha/internal/version"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -35,13 +36,15 @@ func newRootCmd() *cobra.Command {
 	var flags cliFlags
 
 	cmd := &cobra.Command{
-		Use:   "sacha",
-		Short: "Keyboard-first AWS TUI",
+		Use:     "sacha",
+		Short:   "Keyboard-first AWS TUI",
+		Version: version.Short(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(cmd.Context(), flags)
 		},
 	}
 
+	cmd.SetVersionTemplate(version.Info() + "\n")
 	cmd.PersistentFlags().StringVar(&flags.profile, "profile", "", "AWS profile")
 	cmd.PersistentFlags().StringVar(&flags.region, "region", "", "AWS region")
 	cmd.PersistentFlags().StringVar(&flags.service, "service", "", "AWS service (cloudwatch-logs)")

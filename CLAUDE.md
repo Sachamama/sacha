@@ -9,16 +9,29 @@ Sacha is a keyboard-first AWS TUI (Terminal User Interface) inspired by classic 
 ## Build & Development Commands
 
 ```bash
-make build      # Compiles binary to bin/sacha
-make test       # Runs all tests (go test ./...)
-make run        # Runs the application directly
-make lint       # Runs golangci-lint (if installed)
+make build             # Compiles binary to bin/sacha with version info
+make install           # Installs binary to $GOPATH/bin with version info
+make test              # Runs all tests (go test -race ./...)
+make run               # Runs the application directly
+make lint              # Runs golangci-lint (if installed)
+make clean             # Removes bin/ and dist/ directories
+make snapshot          # Creates a local snapshot release (requires goreleaser)
+make release-dry-run   # Tests release build without publishing (requires goreleaser)
 ```
 
 Run a single test:
 ```bash
 go test -run TestName ./internal/config/
 ```
+
+### Version Information
+
+Version information is injected at build time via ldflags into `internal/version/version.go`. The Makefile automatically sets:
+- `Version` - Git tag or "dev" if no tag
+- `Commit` - Short git commit SHA
+- `Date` - Build timestamp
+
+Access version info via CLI: `sacha --version`
 
 ## Architecture
 
@@ -61,6 +74,41 @@ Resolution precedence:
 2. Environment variables (`AWS_PROFILE`, `AWS_REGION`, `AWS_DEFAULT_REGION`)
 3. Config file
 4. AWS SDK defaults
+
+## CI/CD & Release Process
+
+### GitHub Actions Workflows
+
+**CI Pipeline** (`.github/workflows/ci.yml`)
+- Triggers on: PRs and pushes to main branch
+- Jobs:
+  - **Test**: Runs tests with race detection and coverage
+  - **Lint**: Runs golangci-lint for code quality
+  - **Security**: Runs govulncheck to scan for known vulnerabilities
+
+**Release Pipeline** (`.github/workflows/release.yml`)
+- Triggers on: Version tags pushed (e.g., `v1.2.3`)
+- Runs tests, then uses GoReleaser to build and publish release
+
+### Creating a Release
+
+1. Tag the commit with a semantic version: `git tag v1.2.3`
+2. Push the tag: `git push origin v1.2.3`
+3. GitHub Actions automatically:
+   - Runs tests
+   - Builds binaries for all platforms (Linux, macOS, Windows; amd64 and arm64)
+   - Creates GitHub Release with changelog and download links
+   - Publishes binaries and checksums
+
+### GoReleaser Configuration
+
+`.goreleaser.yml` defines:
+- Cross-platform build targets (darwin, linux, windows; amd64, arm64)
+- Version injection via ldflags into `internal/version` package
+- Archive formats (tar.gz for Unix, zip for Windows)
+- Changelog generation (groups commits by type: features, bug fixes, performance)
+- Release template with install instructions
+- Homebrew tap integration (optional, requires token)
 
 ## UI Views & Keyboard Shortcuts
 

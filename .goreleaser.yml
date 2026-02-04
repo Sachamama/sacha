@@ -1,0 +1,115 @@
+version: 2
+
+project_name: sacha
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+builds:
+  - id: sacha
+    main: ./cmd/sacha
+    binary: sacha
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/sachamama/sacha/internal/version.Version={{.Version}}
+      - -X github.com/sachamama/sacha/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sachamama/sacha/internal/version.Date={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: "Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Performance"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "Other"
+      order: 999
+
+release:
+  github:
+    owner: Sachamama
+    name: sacha
+  draft: false
+  prerelease: auto
+  mode: append
+  header: |
+    ## What's Changed
+
+    Install with:
+    ```bash
+    # macOS (Apple Silicon)
+    curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/download/{{ .Tag }}/sacha_{{ .Version }}_darwin_arm64.tar.gz
+    tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/
+
+    # macOS (Intel)
+    curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/download/{{ .Tag }}/sacha_{{ .Version }}_darwin_amd64.tar.gz
+    tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/
+
+    # Linux (x86_64)
+    curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/download/{{ .Tag }}/sacha_{{ .Version }}_linux_amd64.tar.gz
+    tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/
+
+    # Linux (ARM64)
+    curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/download/{{ .Tag }}/sacha_{{ .Version }}_linux_arm64.tar.gz
+    tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/
+    ```
+  footer: |
+    **Full Changelog**: https://github.com/Sachamama/sacha/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+brews:
+  - repository:
+      owner: Sachamama
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    skip_upload: auto
+    directory: Formula
+    homepage: https://github.com/Sachamama/sacha
+    description: Keyboard-first AWS TUI
+    license: MIT
+    test: |
+      system "#{bin}/sacha", "--version"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"

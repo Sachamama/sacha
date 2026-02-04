@@ -307,6 +307,52 @@ func (c *Client) GetBucketRegion(ctx context.Context, bucket string) (string, er
 	return c.getBucketRegion(ctx, bucket)
 }
 
+// ListAllObjects lists all objects under a prefix recursively (no delimiter).
+// This is used for downloading entire folders.
+func (c *Client) ListAllObjects(ctx context.Context, bucket, prefix string) ([]Object, error) {
+	api, err := c.getClientForBucket(ctx, bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	var all []Object
+	var token *string
+	for {
+		out, err := api.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket:            aws.String(bucket),
+			Prefix:            aws.String(prefix),
+			ContinuationToken: token,
+			MaxKeys:           aws.Int32(1000),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list objects: %w", err)
+		}
+
+		for _, obj := range out.Contents {
+			key := aws.ToString(obj.Key)
+			// Skip if key ends with / (folder marker)
+			if strings.HasSuffix(key, "/") {
+				continue
+			}
+			all = append(all, Object{
+				Key:          key,
+				Name:         extractName(key, prefix),
+				Size:         aws.ToInt64(obj.Size),
+				LastModified: aws.ToTime(obj.LastModified),
+				StorageClass: string(obj.StorageClass),
+				IsPrefix:     false,
+			})
+		}
+
+		if out.IsTruncated == nil || !*out.IsTruncated {
+			break
+		}
+		token = out.NextContinuationToken
+	}
+
+	return all, nil
+}
+
 // extractName extracts the display name from a key given the current prefix.
 func extractName(key, prefix string) string {
 	name := strings.TrimPrefix(key, prefix)

@@ -10,6 +10,20 @@ type bucketsLoadedMsg struct {
 
 // objectsLoadedMsg is sent when object listing completes.
 type objectsLoadedMsg struct {
+	objects   []s3.Object
+	nextToken *string // for pagination
+	err       error
+}
+
+// moreObjectsLoadedMsg is sent when additional objects are loaded (lazy loading).
+type moreObjectsLoadedMsg struct {
+	objects   []s3.Object
+	nextToken *string
+	err       error
+}
+
+// allObjectsLoadedMsg is sent when all remaining objects are loaded.
+type allObjectsLoadedMsg struct {
 	objects []s3.Object
 	err     error
 }

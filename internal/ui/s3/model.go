@@ -33,6 +33,10 @@ type Model struct {
 	listOffset int // scroll offset for the list
 	selected   map[string]bool
 
+	// Pagination
+	nextToken   *string // continuation token for lazy loading
+	loadingMore bool    // loading next page
+
 	// Right pane - bucket details (when in bucket list)
 	hoveredBucket string
 	bucketRegion  string
@@ -112,13 +116,50 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.objects = msg.objects
+		m.nextToken = msg.nextToken
 		m.cursor = 0
 		m.selected = make(map[string]bool)
 		m.details = nil
 		m.preview = nil
 		m.showPreview = false
-		m.statusLine = fmt.Sprintf("Loaded %d items", len(msg.objects))
+		if m.nextToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(msg.objects))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d items", len(msg.objects))
+		}
 		return m, m.fetchDetailsCmd()
+
+	case moreObjectsLoadedMsg:
+		m.loadingMore = false
+		if msg.err != nil {
+			m.statusLine = msg.err.Error()
+			return m, nil
+		}
+		m.objects = append(m.objects, msg.objects...)
+		m.nextToken = msg.nextToken
+		if m.nextToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(m.objects))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d items", len(m.objects))
+		}
+		return m, nil
+
+	case allObjectsLoadedMsg:
+		m.loadingMore = false
+		if msg.err != nil {
+			m.statusLine = msg.err.Error()
+			return m, nil
+		}
+		m.objects = append(m.objects, msg.objects...)
+		m.nextToken = nil
+		// Select all non-prefix objects
+		for _, obj := range m.objects {
+			if !obj.IsPrefix {
+				m.selected[obj.Key] = true
+			}
+		}
+		m.statusLine = fmt.Sprintf("Selected all %d files", len(m.selected))
+		return m, nil
 
 	case detailsLoadedMsg:
 		if msg.err != nil {
@@ -227,7 +268,15 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor < maxIdx {
 			m.cursor++
 			m.ensureCursorVisible()
-			return m, m.onCursorMove()
+			cmd := m.onCursorMove()
+			// Lazy load more when near the end
+			if m.bucket != "" && m.nextToken != nil && !m.loadingMore {
+				if m.cursor >= len(m.filteredObjects())-5 {
+					m.loadingMore = true
+					return m, tea.Batch(cmd, m.loadMoreCmd())
+				}
+			}
+			return m, cmd
 		}
 	case "enter":
 		return m.handleEnter()
@@ -237,6 +286,17 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.toggleSelection()
 	case "a":
 		m.toggleAll()
+	case "A":
+		// Load all remaining pages and select all
+		if m.bucket != "" && !m.loadingMore {
+			if m.nextToken != nil {
+				m.loadingMore = true
+				m.statusLine = "Loading all items..."
+				return m, m.loadAllCmd()
+			}
+			// No more pages, just select all
+			m.selectAll()
+		}
 	case "/":
 		m.searching = true
 		m.search.SetValue("")
@@ -481,9 +541,7 @@ func (m *Model) toggleSelection() {
 		return
 	}
 	obj := objects[m.cursor]
-	if obj.IsPrefix {
-		return // Don't select folders
-	}
+	// Allow selecting both files and folders
 	if m.selected[obj.Key] {
 		delete(m.selected, obj.Key)
 	} else {
@@ -496,24 +554,26 @@ func (m *Model) toggleAll() {
 		return
 	}
 	objects := m.filteredObjects()
-	// Count non-prefix objects
-	nonPrefixCount := 0
-	for _, obj := range objects {
-		if !obj.IsPrefix {
-			nonPrefixCount++
-		}
-	}
 	// If all selected, deselect all
-	if len(m.selected) == nonPrefixCount && nonPrefixCount > 0 {
+	if len(m.selected) == len(objects) && len(objects) > 0 {
 		m.selected = make(map[string]bool)
 		return
 	}
-	// Select all non-prefix objects
+	// Select all objects (including folders for recursive download)
 	for _, obj := range objects {
-		if !obj.IsPrefix {
-			m.selected[obj.Key] = true
-		}
+		m.selected[obj.Key] = true
 	}
+}
+
+func (m *Model) selectAll() {
+	if m.bucket == "" {
+		return
+	}
+	// Select all loaded objects (including folders)
+	for _, obj := range m.objects {
+		m.selected[obj.Key] = true
+	}
+	m.statusLine = fmt.Sprintf("Selected all %d items", len(m.selected))
 }
 
 func (m Model) selectedCount() int {
@@ -569,20 +629,44 @@ func (m Model) loadObjectsCmd() tea.Cmd {
 	prefix := m.prefix
 	return func() tea.Msg {
 		ctx := context.Background()
+		objects, nextToken, err := m.client.ListObjects(ctx, bucket, prefix, nil)
+		if err != nil {
+			return objectsLoadedMsg{err: err}
+		}
+		return objectsLoadedMsg{objects: objects, nextToken: nextToken}
+	}
+}
+
+func (m Model) loadMoreCmd() tea.Cmd {
+	bucket := m.bucket
+	prefix := m.prefix
+	token := m.nextToken
+	return func() tea.Msg {
+		ctx := context.Background()
+		objects, nextToken, err := m.client.ListObjects(ctx, bucket, prefix, token)
+		if err != nil {
+			return moreObjectsLoadedMsg{err: err}
+		}
+		return moreObjectsLoadedMsg{objects: objects, nextToken: nextToken}
+	}
+}
+
+func (m Model) loadAllCmd() tea.Cmd {
+	bucket := m.bucket
+	prefix := m.prefix
+	token := m.nextToken
+	return func() tea.Msg {
+		ctx := context.Background()
 		var all []s3.Object
-		var token *string
-		for {
+		for token != nil {
 			objects, next, err := m.client.ListObjects(ctx, bucket, prefix, token)
 			if err != nil {
-				return objectsLoadedMsg{err: err}
+				return allObjectsLoadedMsg{err: err}
 			}
 			all = append(all, objects...)
-			if next == nil {
-				break
-			}
 			token = next
 		}
-		return objectsLoadedMsg{objects: all}
+		return allObjectsLoadedMsg{objects: all}
 	}
 }
 
@@ -623,14 +707,30 @@ func (m Model) fetchPreviewCmd() tea.Cmd {
 func (m Model) downloadSelectedCmd() tea.Cmd {
 	keys := m.selectedKeys()
 	if len(keys) == 0 {
-		// Download current item
-		if m.details != nil {
+		// Download current item (file or folder)
+		objects := m.filteredObjects()
+		if len(objects) > 0 && m.cursor < len(objects) {
+			keys = []string{objects[m.cursor].Key}
+		} else if m.details != nil {
 			keys = []string{m.details.Key}
 		} else {
 			return nil
 		}
 	}
 	bucket := m.bucket
+	client := m.client
+
+	// Separate folders (prefixes) from files
+	var folders []string
+	var files []string
+	for _, key := range keys {
+		if strings.HasSuffix(key, "/") {
+			folders = append(folders, key)
+		} else {
+			files = append(files, key)
+		}
+	}
+
 	return func() tea.Msg {
 		ctx := context.Background()
 		cwd, err := os.Getwd()
@@ -641,19 +741,43 @@ func (m Model) downloadSelectedCmd() tea.Cmd {
 		if err := os.MkdirAll(downloadDir, 0755); err != nil {
 			return downloadCompleteMsg{err: err}
 		}
-		var lastPath string
-		for _, key := range keys {
+
+		downloadedCount := 0
+
+		// Download individual files
+		for _, key := range files {
 			name := extractDisplayName(key)
 			destPath := filepath.Join(downloadDir, name)
-			if err := m.client.DownloadObject(ctx, bucket, key, destPath); err != nil {
+			if err := client.DownloadObject(ctx, bucket, key, destPath); err != nil {
 				return downloadCompleteMsg{err: err}
 			}
-			lastPath = destPath
+			downloadedCount++
 		}
-		if len(keys) == 1 {
-			return downloadCompleteMsg{path: lastPath}
+
+		// Download folders recursively
+		for _, folderKey := range folders {
+			// List all objects in the folder recursively
+			folderObjects, err := client.ListAllObjects(ctx, bucket, folderKey)
+			if err != nil {
+				return downloadCompleteMsg{err: err}
+			}
+
+			folderName := strings.TrimSuffix(extractDisplayName(folderKey), "/")
+			for _, obj := range folderObjects {
+				// Preserve folder structure: remove the folder prefix and keep relative path
+				relativePath := strings.TrimPrefix(obj.Key, folderKey)
+				destPath := filepath.Join(downloadDir, folderName, relativePath)
+				if err := client.DownloadObject(ctx, bucket, obj.Key, destPath); err != nil {
+					return downloadCompleteMsg{err: err}
+				}
+				downloadedCount++
+			}
 		}
-		return downloadCompleteMsg{path: fmt.Sprintf("%d files to sacha-downloads/", len(keys))}
+
+		if downloadedCount == 1 {
+			return downloadCompleteMsg{path: "1 file to sacha-downloads/"}
+		}
+		return downloadCompleteMsg{path: fmt.Sprintf("%d files to sacha-downloads/", downloadedCount)}
 	}
 }
 
@@ -683,5 +807,5 @@ func (m Model) StatusHelp() string {
 		return "↑↓ move, / search, enter open, y copy"
 	}
 	// Inside bucket
-	return "↑↓ move, / search, space select, a all, d download, D delete, p preview, y copy, esc back"
+	return "↑↓ move, / search, space select, a all, A load+select all, d download, D delete, p preview, y copy, esc back"
 }

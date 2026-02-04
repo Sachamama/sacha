@@ -99,7 +99,7 @@ func (m Model) renderTail() string {
 	return fmt.Sprintf("%s\n%s", titleStyle.Render("Logs"), m.view.View())
 }
 
-func renderEvents(events []logs.TailEvent, jsonView bool, cursor int, width int, showCursor bool, scrollX int) string {
+func renderEvents(events []logs.TailEvent, jsonView bool, cursor, width int, showCursor bool, scrollX int) string {
 	if len(events) == 0 {
 		return ""
 	}
@@ -138,7 +138,7 @@ func renderEvents(events []logs.TailEvent, jsonView bool, cursor int, width int,
 	return renderEventsTable(events, allKeys, cursor, width, showCursor, scrollX)
 }
 
-func renderEventsPlain(events []logs.TailEvent, cursor int, width int, showCursor bool, scrollX int) string {
+func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bool, scrollX int) string {
 	var b strings.Builder
 
 	// Calculate column widths
@@ -166,7 +166,7 @@ func renderEventsPlain(events []logs.TailEvent, cursor int, width int, showCurso
 	return b.String()
 }
 
-func renderEventsTable(events []logs.TailEvent, keys []string, cursor int, width int, showCursor bool, scrollX int) string {
+func renderEventsTable(events []logs.TailEvent, keys []string, cursor, width int, showCursor bool, scrollX int) string {
 	// Sort keys for consistent column order (timestamp-like fields first)
 	sort.Slice(keys, func(i, j int) bool {
 		priority := map[string]int{

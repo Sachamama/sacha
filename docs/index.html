@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sacha - Keyboard-first AWS TUI</title>
+    <meta name="description" content="A keyboard-first AWS Terminal User Interface for browsing CloudWatch Logs and S3 without leaving your terminal.">
+    <meta name="keywords" content="AWS, TUI, Terminal, CloudWatch, S3, CLI, DevOps">
+    <meta property="og:title" content="Sacha - Keyboard-first AWS TUI">
+    <meta property="og:description" content="Browse, search, and manage AWS resources directly from your terminal.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sachamama.github.io/sacha/">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --accent-hover: #79b8ff;
+            --green: #3fb950;
+            --purple: #a371f7;
+            --orange: #f0883e;
+            --pink: #db61a2;
+            --border: #30363d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        header {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: rgba(13, 17, 23, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--green), var(--accent));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Hero */
+        .hero {
+            padding: 100px 0 80px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--text-primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        /* Terminal Demo */
+        .terminal-section {
+            padding: 60px 0;
+        }
+
+        .terminal {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .terminal-header {
+            background: var(--bg-tertiary);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terminal-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .terminal-btn.red { background: #ff5f56; }
+        .terminal-btn.yellow { background: #ffbd2e; }
+        .terminal-btn.green { background: #27c93f; }
+
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .terminal-body {
+            padding: 24px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        .terminal-line {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .prompt {
+            color: var(--green);
+        }
+
+        .command {
+            color: var(--text-primary);
+        }
+
+        .output {
+            color: var(--text-secondary);
+            padding-left: 20px;
+        }
+
+        .highlight-green { color: var(--green); }
+        .highlight-blue { color: var(--accent); }
+        .highlight-purple { color: var(--purple); }
+        .highlight-orange { color: var(--orange); }
+        .highlight-pink { color: var(--pink); }
+
+        /* Features */
+        .features {
+            padding: 80px 0;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 60px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+        }
+
+        .feature-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+        }
+
+        /* Install */
+        .install {
+            padding: 80px 0;
+            background: var(--bg-secondary);
+        }
+
+        .install h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+
+        .install .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+        }
+
+        .install-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .install-method {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .install-method h3 {
+            font-size: 1rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .code-block {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block code {
+            color: var(--text-primary);
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--accent);
+        }
+
+        /* Keybindings */
+        .keybindings {
+            padding: 80px 0;
+        }
+
+        .keybindings h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 48px;
+        }
+
+        .keys-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .key-group h3 {
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .key-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .key {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+        }
+
+        .key-action {
+            color: var(--text-secondary);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 24px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        .footer-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .footer-text a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero, .terminal, .feature-card, .install-method {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .feature-card:nth-child(2) { animation-delay: 0.1s; }
+        .feature-card:nth-child(3) { animation-delay: 0.2s; }
+        .feature-card:nth-child(4) { animation-delay: 0.3s; }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="#" class="logo">
+                <div class="logo-icon">S</div>
+                sacha
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#install">Install</a></li>
+                <li><a href="#keybindings">Keybindings</a></li>
+                <li>
+                    <a href="https://github.com/Sachamama/sacha" class="github-link">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                        </svg>
+                        GitHub
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <h1>Keyboard-first AWS TUI</h1>
+                <p class="subtitle">
+                    Browse, search, and manage AWS resources directly from your terminal.
+                    No more switching between browser tabs and consoles.
+                </p>
+                <div class="cta-buttons">
+                    <a href="#install" class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                        </svg>
+                        Install Now
+                    </a>
+                    <a href="https://github.com/Sachamama/sacha" class="btn btn-secondary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                        </svg>
+                        View on GitHub
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="terminal-section">
+            <div class="container">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-btn red"></div>
+                        <div class="terminal-btn yellow"></div>
+                        <div class="terminal-btn green"></div>
+                        <div class="terminal-title">sacha ~ CloudWatch Logs</div>
+                    </div>
+                    <div class="terminal-body">
+                        <div class="terminal-line">
+                            <span class="prompt">$</span>
+                            <span class="command">brew install sachamama/tap/sacha</span>
+                        </div>
+                        <div class="output">
+                            <span class="highlight-green">==></span> Installing <span class="highlight-blue">sacha</span> from sachamama/tap<br>
+                            <span class="highlight-green">==></span> Downloading sacha_0.1.1_darwin_arm64.tar.gz<br>
+                            <span class="highlight-green">==></span> Installing...<br>
+                            <span class="highlight-green">==></span> <span class="highlight-green">sacha</span> was successfully installed!
+                        </div>
+                        <br>
+                        <div class="terminal-line">
+                            <span class="prompt">$</span>
+                            <span class="command">sacha --profile production --region us-east-1</span>
+                        </div>
+                        <div class="output" style="padding-left: 0;">
+                            <pre style="color: var(--text-secondary); line-height: 1.4;">
+<span class="highlight-pink">sacha</span> <span class="highlight-blue">us-east-1</span> / <span class="highlight-purple">CloudWatch Logs</span>
+
+<span class="highlight-green">Log Groups</span>                      <span class="highlight-orange">Logs</span>
+<span style="color: var(--border)">─────────────────────────────────────────────────────</span>
+<span class="highlight-blue">></span> /aws/lambda/api-prod         <span class="highlight-green">12:34:05</span> INFO Request handled
+  /aws/lambda/worker-prod      <span class="highlight-green">12:34:04</span> INFO Processing job
+<span class="highlight-pink">*</span> /aws/ecs/web-service         <span class="highlight-orange">12:34:03</span> WARN High latency
+  /aws/apigateway/rest-api     <span class="highlight-green">12:34:02</span> INFO 200 GET /users
+  /aws/rds/aurora-cluster      <span class="highlight-green">12:34:01</span> INFO Query executed
+
+<span style="color: var(--text-secondary)">/ search  space select  t tail  r region  s service  q quit</span></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="features" id="features">
+            <div class="container">
+                <h2>Features</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">📋</div>
+                        <h3>CloudWatch Logs</h3>
+                        <p>Search, multi-select, and tail multiple log groups simultaneously. JSON logs auto-format as tables for easy reading.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📦</div>
+                        <h3>S3 Browser</h3>
+                        <p>Browse buckets, navigate folders, download and delete files, preview text content, and copy S3 URIs to clipboard.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⌨️</div>
+                        <h3>Keyboard-First</h3>
+                        <p>Vim-style navigation with intuitive keybindings. Everything is accessible without touching your mouse.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔧</div>
+                        <h3>AWS Profile Support</h3>
+                        <p>Works seamlessly with AWS CLI profiles and environment variables. Switch regions on the fly.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">💾</div>
+                        <h3>Remembers Settings</h3>
+                        <p>Automatically saves your last used region and service. Jump right back into work.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔌</div>
+                        <h3>Extensible</h3>
+                        <p>Built with a pluggable architecture. More AWS services coming soon.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="install" id="install">
+            <div class="container">
+                <h2>Installation</h2>
+                <p class="subtitle">Choose your preferred installation method</p>
+                <div class="install-methods">
+                    <div class="install-method">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--orange)">
+                                <path d="M5.042 10.042c0-2.761 2.239-5 5-5s5 2.239 5 5-2.239 5-5 5-5-2.239-5-5zm14.916 8.916l-4.249-4.249c.885-1.177 1.333-2.619 1.333-4.167 0-3.86-3.14-7-7-7s-7 3.14-7 7 3.14 7 7 7c1.548 0 2.99-.448 4.167-1.333l4.249 4.249 1.5-1.5z"/>
+                            </svg>
+                            Homebrew (Recommended)
+                        </h3>
+                        <div class="code-block">
+                            <code>brew install sachamama/tap/sacha</code>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                    <div class="install-method">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent)">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                            Go Install
+                        </h3>
+                        <div class="code-block">
+                            <code>go install github.com/sachamama/sacha/cmd/sacha@latest</code>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                    <div class="install-method">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--green)">
+                                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                            </svg>
+                            Download Binary
+                        </h3>
+                        <div class="code-block">
+                            <code># macOS (Apple Silicon)<br>curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/latest/download/sacha_darwin_arm64.tar.gz<br>tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/</code>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                    <div class="install-method">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--purple)">
+                                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                            </svg>
+                            Build from Source
+                        </h3>
+                        <div class="code-block">
+                            <code>git clone https://github.com/Sachamama/sacha.git<br>cd sacha && make build<br># Binary at ./bin/sacha</code>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="keybindings" id="keybindings">
+            <div class="container">
+                <h2>Keybindings</h2>
+                <div class="keys-grid">
+                    <div class="key-group">
+                        <h3>Global</h3>
+                        <div class="key-item">
+                            <span class="key">r</span>
+                            <span class="key-action">Change region</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key">s</span>
+                            <span class="key-action">Change service</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key">Ctrl+C</span>
+                            <span class="key-action">Quit</span>
+                        </div>
+                    </div>
+                    <div class="key-group">
+                        <h3>Navigation</h3>
+                        <div class="key-item">
+                            <span class="key">j/k</span>
+                            <span class="key-action">Move up/down</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key">/</span>
+                            <span class="key-action">Search/filter</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key">Tab</span>
+                            <span class="key-action">Switch panels</span>
+                        </div>
+                    </div>
+                    <div class="key-group">
+                        <h3>CloudWatch Logs</h3>
+                        <div class="key-item">
+                            <span class="key">Space</span>
+                            <span class="key-action">Toggle selection</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key">t</span>
+                            <span class="key-action">Start tailing</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key">v</span>
+                            <span class="key-action">Toggle view mode</span>
+                        </div>
+                    </div>
+                    <div class="key-group">
+                        <h3>S3</h3>
+                        <div class="key-item">
+                            <span class="key">Enter</span>
+                            <span class="key-action">Open bucket/folder</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key">d</span>
+                            <span class="key-action">Download</span>
+                        </div>
+                        <div class="key-item">
+                            <span class="key">y</span>
+                            <span class="key-action">Copy S3 URI</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://github.com/Sachamama/sacha">GitHub</a>
+                <a href="https://github.com/Sachamama/sacha/releases">Releases</a>
+                <a href="https://github.com/Sachamama/sacha/issues">Issues</a>
+                <a href="https://github.com/Sachamama/sacha/blob/main/LICENSE">MIT License</a>
+            </div>
+            <p class="footer-text">
+                Made with care by <a href="https://github.com/Sachamama">Sachamama</a>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        function copyCode(button) {
+            const codeBlock = button.parentElement;
+            const code = codeBlock.querySelector('code').innerText;
+            navigator.clipboard.writeText(code.replace(/\n/g, ' ; ').replace(/ ; $/, ''));
+            button.textContent = 'Copied!';
+            setTimeout(() => button.textContent = 'Copy', 2000);
+        }
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

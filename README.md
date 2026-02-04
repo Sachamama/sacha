@@ -17,61 +17,71 @@ sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It
 
 ## Install
 
-Prerequisites: Go 1.22+ and AWS credentials that can read CloudWatch Logs.
+Prerequisites: AWS credentials that can read CloudWatch Logs.
+
+### Homebrew (macOS/Linux)
+
+```bash
+brew install sachamama/tap/sacha
+```
+
+### Go Install
+
+```bash
+go install github.com/sachamama/sacha/cmd/sacha@latest
+```
+
+Requires Go 1.22+.
 
 ### Pre-built Binaries
 
-Download the latest release for your platform:
+Download from [releases](https://github.com/Sachamama/sacha/releases):
 
 ```bash
 # macOS (Apple Silicon)
 curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/latest/download/sacha_VERSION_darwin_arm64.tar.gz
 tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/
-rm sacha.tar.gz
 
 # macOS (Intel)
 curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/latest/download/sacha_VERSION_darwin_amd64.tar.gz
 tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/
-rm sacha.tar.gz
 
 # Linux (x86_64)
 curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/latest/download/sacha_VERSION_linux_amd64.tar.gz
 tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/
-rm sacha.tar.gz
 
 # Linux (ARM64)
 curl -Lo sacha.tar.gz https://github.com/Sachamama/sacha/releases/latest/download/sacha_VERSION_linux_arm64.tar.gz
 tar xzf sacha.tar.gz && sudo mv sacha /usr/local/bin/
-rm sacha.tar.gz
-
-# Windows (PowerShell)
-curl -Lo sacha.zip https://github.com/Sachamama/sacha/releases/latest/download/sacha_VERSION_windows_amd64.zip
-Expand-Archive sacha.zip -DestinationPath .
-# Add sacha.exe to your PATH
 ```
 
-Replace `VERSION` with the actual version number (e.g., `1.0.0`), or browse [releases](https://github.com/Sachamama/sacha/releases) to download directly.
+Replace `VERSION` with the actual version (e.g., `1.0.0`).
 
-### Other Install Methods
+### From Source
 
-- With Go: `go install github.com/sachamama/sacha/cmd/sacha@latest`
-- From source: `make build` (binary at `bin/sacha`)
+```bash
+git clone https://github.com/Sachamama/sacha.git
+cd sacha
+make build  # binary at bin/sacha
+```
 
 ## Update
 
 Check your current version with `sacha --version`.
 
 To update sacha to the latest version:
-- **Pre-built binary**: Re-run the install command from the [Install](#install) section with the new version.
+- **Homebrew**: `brew upgrade sacha`
 - **Go install**: `go install github.com/sachamama/sacha/cmd/sacha@latest`
+- **Pre-built binary**: Download the new version from [releases](https://github.com/Sachamama/sacha/releases)
 - **From source**: `git pull && make build`
 
 ## Versioning
 
 Sacha follows [semantic versioning](https://semver.org/). Releases are tagged as `vMAJOR.MINOR.PATCH` (e.g., `v1.2.3`).
 
-New releases are automatically built and published to [GitHub Releases](https://github.com/Sachamama/sacha/releases) when version tags are pushed. Each release includes:
-- Pre-built binaries for Linux, macOS, and Windows (amd64 and arm64)
+New releases are automatically built and published when version tags are pushed:
+- [GitHub Releases](https://github.com/Sachamama/sacha/releases) with pre-built binaries for Linux, macOS, and Windows (amd64 and arm64)
+- [Homebrew tap](https://github.com/Sachamama/homebrew-tap) for easy installation via `brew`
 - Checksums for verification
 - Automated changelog with features, bug fixes, and performance improvements
 

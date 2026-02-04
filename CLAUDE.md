@@ -9,11 +9,13 @@ Sacha is a keyboard-first AWS TUI (Terminal User Interface) inspired by classic 
 ## Build & Development Commands
 
 ```bash
+make setup             # Install git hooks and dev tools (run once after clone)
 make build             # Compiles binary to bin/sacha with version info
 make install           # Installs binary to $GOPATH/bin with version info
 make test              # Runs all tests (go test -race ./...)
 make run               # Runs the application directly
 make lint              # Runs golangci-lint (if installed)
+make fmt               # Format code with gofumpt
 make clean             # Removes bin/ and dist/ directories
 make snapshot          # Creates a local snapshot release (requires goreleaser)
 make release-dry-run   # Tests release build without publishing (requires goreleaser)
@@ -22,6 +24,23 @@ make release-dry-run   # Tests release build without publishing (requires gorele
 Run a single test:
 ```bash
 go test -run TestName ./internal/config/
+```
+
+### Git Hooks
+
+The project includes pre-commit hooks that run automatically before each commit:
+1. **Format check** - Verifies code is formatted with gofumpt
+2. **Lint** - Runs golangci-lint on changed files
+3. **Tests** - Runs the full test suite with race detection
+
+To enable hooks after cloning:
+```bash
+make setup
+```
+
+Or manually:
+```bash
+git config core.hooksPath .githooks
 ```
 
 ### Version Information

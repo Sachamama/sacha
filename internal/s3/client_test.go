@@ -17,10 +17,10 @@ import (
 
 // mockS3API is a mock implementation of S3API for testing.
 type mockS3API struct {
-	listBucketsFn      func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
-	listObjectsV2Fn    func(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
-	headObjectFn       func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
-	getObjectFn        func(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	listBucketsFn       func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
+	listObjectsV2Fn     func(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
+	headObjectFn        func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
+	getObjectFn         func(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 	getBucketLocationFn func(ctx context.Context, params *s3.GetBucketLocationInput, optFns ...func(*s3.Options)) (*s3.GetBucketLocationOutput, error)
 }
 
@@ -506,12 +506,12 @@ func TestGetObjectPreview(t *testing.T) {
 
 func TestDownloadObject(t *testing.T) {
 	tests := []struct {
-		name     string
-		bucket   string
-		key      string
-		content  string
-		mockFn   func(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
-		wantErr  bool
+		name    string
+		bucket  string
+		key     string
+		content string
+		mockFn  func(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+		wantErr bool
 	}{
 		{
 			name:    "successful download",
@@ -706,7 +706,7 @@ func TestListAllObjects(t *testing.T) {
 			mockFn: func(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
 				return &s3.ListObjectsV2Output{
 					Contents: []types.Object{
-						{Key: aws.String("prefix/"), Size: aws.Int64(0)},         // folder marker
+						{Key: aws.String("prefix/"), Size: aws.Int64(0)},           // folder marker
 						{Key: aws.String("prefix/subfolder/"), Size: aws.Int64(0)}, // folder marker
 						{Key: aws.String("prefix/file.txt"), Size: aws.Int64(100)},
 					},

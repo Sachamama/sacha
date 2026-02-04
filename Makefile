@@ -12,7 +12,7 @@ LDFLAGS := -s -w \
 	-X $(MODULE)/internal/version.Commit=$(COMMIT) \
 	-X $(MODULE)/internal/version.Date=$(DATE)
 
-.PHONY: build test run lint clean install snapshot release-dry-run
+.PHONY: build test run lint clean install snapshot release-dry-run setup fmt
 
 build:
 	@echo "Building $(APP) $(VERSION)..."
@@ -40,3 +40,15 @@ snapshot:
 
 release-dry-run:
 	@goreleaser release --skip=publish --clean
+
+# Development setup
+setup:
+	@echo "Installing git hooks..."
+	@git config core.hooksPath .githooks
+	@echo "Installing development tools..."
+	@go install mvdan.cc/gofumpt@latest
+	@echo "Setup complete! Git hooks are now active."
+
+fmt:
+	@echo "Formatting code..."
+	@$(shell go env GOPATH)/bin/gofumpt -w .

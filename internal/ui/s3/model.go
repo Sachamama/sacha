@@ -57,9 +57,6 @@ type Model struct {
 	loading    bool
 	statusLine string
 
-	// Confirmation
-	confirmDelete bool
-	deleteKeys    []string
 }
 
 // NewModel creates a new S3 browser model.
@@ -189,17 +186,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusLine = "Downloaded: " + msg.path
 		}
 
-	case deleteCompleteMsg:
-		m.confirmDelete = false
-		m.deleteKeys = nil
-		if msg.err != nil {
-			m.statusLine = "Delete failed: " + msg.err.Error()
-		} else {
-			m.statusLine = fmt.Sprintf("Deleted %d objects", msg.count)
-			m.selected = make(map[string]bool)
-			return m, m.loadObjectsCmd()
-		}
-
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 	}
@@ -208,18 +194,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Handle confirmation dialog
-	if m.confirmDelete {
-		switch msg.String() {
-		case "y", "Y":
-			return m, m.deleteObjectsCmd()
-		case "n", "N", "esc":
-			m.confirmDelete = false
-			m.deleteKeys = nil
-		}
-		return m, nil
-	}
-
 	// Handle search input
 	if m.searching {
 		switch msg.Type {
@@ -309,12 +283,6 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "d":
 		return m, m.downloadSelectedCmd()
-	case "D":
-		keys := m.selectedKeys()
-		if len(keys) > 0 {
-			m.confirmDelete = true
-			m.deleteKeys = keys
-		}
 	case "y":
 		uri := m.getS3URI()
 		if uri != "" {
@@ -342,18 +310,7 @@ func (m Model) View() string {
 
 	view := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 
-	// Overlay confirmation dialog
-	if m.confirmDelete {
-		dialog := m.renderConfirmDialog()
-		view = m.overlayDialog(view, dialog)
-	}
-
 	return view
-}
-
-func (m Model) overlayDialog(_, dialog string) string {
-	return lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, dialog,
-		lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
 }
 
 func (m Model) bodyHeight() int {
@@ -781,21 +738,8 @@ func (m Model) downloadSelectedCmd() tea.Cmd {
 	}
 }
 
-func (m Model) deleteObjectsCmd() tea.Cmd {
-	bucket := m.bucket
-	keys := m.deleteKeys
-	return func() tea.Msg {
-		ctx := context.Background()
-		err := m.client.DeleteObjects(ctx, bucket, keys)
-		return deleteCompleteMsg{count: len(keys), err: err}
-	}
-}
-
 // StatusHelp returns context-aware help text for the status bar.
 func (m Model) StatusHelp() string {
-	if m.confirmDelete {
-		return "y confirm, n/esc cancel"
-	}
 	if m.searching {
 		return "enter/esc close search"
 	}
@@ -807,5 +751,5 @@ func (m Model) StatusHelp() string {
 		return "↑↓ move, / search, enter open, y copy"
 	}
 	// Inside bucket
-	return "↑↓ move, / search, space select, a all, A load+select all, d download, D delete, p preview, y copy, esc back"
+	return "↑↓ move, / search, space select, a all, A load+select all, d download, p preview, y copy, esc back"
 }

@@ -35,11 +35,6 @@ var (
 
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196"))
-
-	confirmBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("196")).
-			Padding(1, 2)
 )
 
 func (m Model) renderLeft() string {
@@ -256,28 +251,6 @@ func (m Model) renderRight() string {
 	}
 
 	return b.String()
-}
-
-func (m Model) renderConfirmDialog() string {
-	b := &strings.Builder{}
-
-	count := len(m.deleteKeys)
-	fmt.Fprintf(b, "Delete %d object(s)?\n\n", count)
-
-	// Show first few keys
-	maxShow := 5
-	for i, key := range m.deleteKeys {
-		if i >= maxShow {
-			fmt.Fprintf(b, "  ... and %d more\n", count-maxShow)
-			break
-		}
-		name := extractDisplayName(key)
-		fmt.Fprintf(b, "  • %s\n", name)
-	}
-
-	fmt.Fprintf(b, "\n%s", dimText.Render("Press y to confirm, n or Esc to cancel"))
-
-	return confirmBoxStyle.Render(b.String())
 }
 
 func formatSize(bytes int64) string {

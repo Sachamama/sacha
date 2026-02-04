@@ -49,12 +49,6 @@ type downloadCompleteMsg struct {
 	err  error
 }
 
-// deleteCompleteMsg is sent when deletion completes.
-type deleteCompleteMsg struct {
-	count int
-	err   error
-}
-
 // bucketRegionMsg is sent when bucket region is fetched.
 type bucketRegionMsg struct {
 	bucket string

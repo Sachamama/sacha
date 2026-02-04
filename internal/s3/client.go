@@ -11,7 +11,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // S3API captures the AWS SDK methods we use.
@@ -20,7 +19,6 @@ type S3API interface {
 	ListObjectsV2(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
 	HeadObject(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
 	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
-	DeleteObjects(ctx context.Context, params *s3.DeleteObjectsInput, optFns ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error)
 	GetBucketLocation(ctx context.Context, params *s3.GetBucketLocationInput, optFns ...func(*s3.Options)) (*s3.GetBucketLocationOutput, error)
 }
 
@@ -268,38 +266,6 @@ func (c *Client) DownloadObject(ctx context.Context, bucket, key, destPath strin
 	}
 
 	return f.Close()
-}
-
-// DeleteObjects deletes multiple objects from a bucket.
-func (c *Client) DeleteObjects(ctx context.Context, bucket string, keys []string) error {
-	if len(keys) == 0 {
-		return nil
-	}
-
-	api, err := c.getClientForBucket(ctx, bucket)
-	if err != nil {
-		return err
-	}
-
-	objectIDs := make([]types.ObjectIdentifier, len(keys))
-	for i, key := range keys {
-		objectIDs[i] = types.ObjectIdentifier{
-			Key: aws.String(key),
-		}
-	}
-
-	_, err = api.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-		Bucket: aws.String(bucket),
-		Delete: &types.Delete{
-			Objects: objectIDs,
-			Quiet:   aws.Bool(true),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("delete objects: %w", err)
-	}
-
-	return nil
 }
 
 // GetBucketRegion returns the region for a bucket.

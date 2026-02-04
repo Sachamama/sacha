@@ -165,10 +165,10 @@ func TestListLogGroups(t *testing.T) {
 
 func TestCreateLogGroup(t *testing.T) {
 	tests := []struct {
-		name    string
+		name      string
 		groupName string
-		mockFn  func(ctx context.Context, params *cloudwatchlogs.CreateLogGroupInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.CreateLogGroupOutput, error)
-		wantErr bool
+		mockFn    func(ctx context.Context, params *cloudwatchlogs.CreateLogGroupInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.CreateLogGroupOutput, error)
+		wantErr   bool
 	}{
 		{
 			name:      "successful creation",

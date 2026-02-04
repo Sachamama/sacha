@@ -103,13 +103,17 @@ brews:
       owner: Sachamama
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    skip_upload: auto
     directory: Formula
     homepage: https://github.com/Sachamama/sacha
     description: Keyboard-first AWS TUI
     license: MIT
+    dependencies:
+      - name: go
+        type: optional
     test: |
       system "#{bin}/sacha", "--version"
+    install: |
+      bin.install "sacha"
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

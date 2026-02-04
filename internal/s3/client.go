@@ -36,8 +36,10 @@ type Client struct {
 // NewClient creates a new S3 client from the provided AWS config.
 func NewClient(cfg aws.Config) *Client {
 	return &Client{
-		cfg:     cfg,
-		api:     s3.NewFromConfig(cfg),
+		cfg: cfg,
+		api: s3.NewFromConfig(cfg, func(o *s3.Options) {
+			o.DisableLogOutputChecksumValidationSkipped = true
+		}),
 		regions: make(map[string]string),
 		clients: make(map[string]S3API),
 	}
@@ -72,6 +74,7 @@ func (c *Client) getBucketRegion(ctx context.Context, bucket string) (string, er
 	// GetBucketLocation must be called from us-east-1 for reliable results
 	usEast1Client := s3.NewFromConfig(c.cfg, func(o *s3.Options) {
 		o.Region = "us-east-1"
+		o.DisableLogOutputChecksumValidationSkipped = true
 	})
 
 	out, err := usEast1Client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{
@@ -110,6 +113,7 @@ func (c *Client) getClientForBucket(ctx context.Context, bucket string) (S3API, 
 
 	client = s3.NewFromConfig(c.cfg, func(o *s3.Options) {
 		o.Region = region
+		o.DisableLogOutputChecksumValidationSkipped = true
 	})
 
 	c.mu.Lock()

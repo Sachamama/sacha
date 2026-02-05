@@ -193,3 +193,24 @@ Resolution precedence:
 **Preview Mode**
 - `↑/↓` - Scroll
 - `p/esc` - Close preview
+
+### DynamoDB (`internal/ui/dynamodb/`)
+
+**Tables View (default)**
+- `↑/↓` or `j/k` - Navigate (lazy loads more tables near end)
+- `/` - Search/filter
+- `enter` - Open table (scan items)
+- `y` - Copy table ARN
+
+**Items View (inside table)**
+- `↑/↓` or `j/k` - Navigate (lazy loads more items near end)
+- `/` - Search/filter items by value
+- `enter` or `space` - Expand selected item (popup with full attribute details)
+- `y` - Copy table ARN
+- `esc/backspace/h` - Go back to tables list
+
+**Expanded Item Popup**
+- Accessed by pressing `enter` or `space` on a selected item
+- `↑/↓` or `j/k` - Scroll up/down
+- `pgup/pgdn` - Page up/down
+- `esc` - Close popup

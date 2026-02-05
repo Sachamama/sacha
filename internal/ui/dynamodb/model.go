@@ -37,6 +37,10 @@ type Model struct {
 	cursor     int
 	listOffset int
 
+	// Scroll memory: saved position when entering a table
+	savedCursor     int
+	savedListOffset int
+
 	// Expanded item popup
 	expandedItem int            // index of expanded item, -1 if none
 	expandedView viewport.Model // viewport for expanded item
@@ -352,6 +356,9 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 		if len(tables) == 0 || m.cursor >= len(tables) {
 			return m, nil
 		}
+		// Save scroll position before entering table
+		m.savedCursor = m.cursor
+		m.savedListOffset = m.listOffset
 		m.table = tables[m.cursor].Name
 		m.cursor = 0
 		m.listOffset = 0
@@ -370,13 +377,15 @@ func (m Model) handleBack() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.table = ""
-	m.cursor = 0
-	m.listOffset = 0
+	// Restore saved scroll position
+	m.cursor = m.savedCursor
+	m.listOffset = m.savedListOffset
 	m.items = nil
 	m.lastEvaluatedKey = nil
 	m.itemColumns = nil
 	m.description = nil
 	m.search.SetValue("")
+	m.clampCursor()
 	return m, m.fetchDescriptionCmd()
 }
 

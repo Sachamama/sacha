@@ -17,6 +17,12 @@ import (
 
 const maxPreviewBytes = 10 * 1024 // 10KB
 
+// scrollPosition stores cursor state for scroll memory.
+type scrollPosition struct {
+	cursor     int
+	listOffset int
+}
+
 // Model is the Bubble Tea model for the S3 browser.
 type Model struct {
 	client *s3.Client
@@ -56,6 +62,10 @@ type Model struct {
 	search     textinput.Model
 	loading    bool
 	statusLine string
+
+	// Scroll memory: stack of saved positions for hierarchical navigation
+	scrollStack    []scrollPosition
+	pendingRestore *scrollPosition // restore after next objectsLoadedMsg
 
 	// Download progress
 	downloading     bool
@@ -129,6 +139,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.details = nil
 		m.preview = nil
 		m.showPreview = false
+		// Restore scroll position if navigating back
+		if m.pendingRestore != nil {
+			m.cursor = m.pendingRestore.cursor
+			m.listOffset = m.pendingRestore.listOffset
+			m.pendingRestore = nil
+			m.clampCursor()
+		}
 		if m.nextToken != nil {
 			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(msg.objects))
 		} else {
@@ -453,6 +470,8 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 		if len(buckets) == 0 || m.cursor >= len(buckets) {
 			return m, nil
 		}
+		// Save scroll position before entering bucket
+		m.scrollStack = append(m.scrollStack, scrollPosition{cursor: m.cursor, listOffset: m.listOffset})
 		m.bucket = buckets[m.cursor].Name
 		m.prefix = ""
 		m.path = nil
@@ -473,6 +492,8 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 		return m, nil // Can't enter a file
 	}
 
+	// Save scroll position before entering folder
+	m.scrollStack = append(m.scrollStack, scrollPosition{cursor: m.cursor, listOffset: m.listOffset})
 	m.prefix = obj.Key
 	m.path = append(m.path, obj.Name)
 	m.cursor = 0
@@ -487,16 +508,24 @@ func (m Model) handleBack() (tea.Model, tea.Cmd) {
 		return m, nil // Already at root
 	}
 
+	// Restore saved scroll position
+	var saved scrollPosition
+	if len(m.scrollStack) > 0 {
+		saved = m.scrollStack[len(m.scrollStack)-1]
+		m.scrollStack = m.scrollStack[:len(m.scrollStack)-1]
+	}
+
 	if m.prefix == "" {
 		// Go back to bucket list
 		m.bucket = ""
 		m.path = nil
-		m.cursor = 0
-		m.listOffset = 0
+		m.cursor = saved.cursor
+		m.listOffset = saved.listOffset
 		m.objects = nil
 		m.selected = make(map[string]bool)
 		m.details = nil
 		m.search.SetValue("")
+		m.clampCursor()
 		return m, nil
 	}
 
@@ -510,6 +539,8 @@ func (m Model) handleBack() (tea.Model, tea.Cmd) {
 	} else {
 		m.prefix = strings.Join(m.path, "/") + "/"
 	}
+	// Defer restore until objects are loaded
+	m.pendingRestore = &saved
 	m.cursor = 0
 	m.listOffset = 0
 	m.search.SetValue("")

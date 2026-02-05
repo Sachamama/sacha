@@ -11,6 +11,7 @@ import (
 	"github.com/sachamama/sacha/internal/config"
 	appui "github.com/sachamama/sacha/internal/ui/app"
 	dynamodbui "github.com/sachamama/sacha/internal/ui/dynamodb"
+	lambdaui "github.com/sachamama/sacha/internal/ui/lambda"
 	logsui "github.com/sachamama/sacha/internal/ui/logs"
 	s3ui "github.com/sachamama/sacha/internal/ui/s3"
 	"github.com/sachamama/sacha/internal/version"
@@ -92,6 +93,7 @@ func run(ctx context.Context, flags cliFlags) error {
 		"cloudwatch-logs": logsui.CloudWatchLogsService{},
 		"s3":              s3ui.S3Service{},
 		"dynamodb":        dynamodbui.DynamoDBService{},
+		"lambda":          lambdaui.LambdaService{},
 	}
 
 	appModel, err := appui.NewModel(loader, services, runtime, awsCfg, &log.Logger)

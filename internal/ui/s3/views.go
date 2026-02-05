@@ -175,7 +175,11 @@ func (m Model) renderObjectList(b *strings.Builder, visibleHeight int) {
 	}
 
 	if endIdx < len(objects) {
-		fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		if m.loadingMore {
+			fmt.Fprintln(b, dimText.Render("  ⟳ loading more..."))
+		} else {
+			fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		}
 	}
 }
 

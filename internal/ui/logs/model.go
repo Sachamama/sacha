@@ -583,8 +583,8 @@ func (m Model) bodyHeight() int {
 }
 
 func (m Model) listHeight() int {
-	// bodyHeight minus: header(1) + search hint(1) + blank(1) + footer(1) + borders(2)
-	h := m.bodyHeight() - 6
+	// bodyHeight minus: header(1) + search hint(1) + blank(1) + footer(1) + status(1) + borders(2)
+	h := m.bodyHeight() - 7
 	if h < 3 {
 		return 3
 	}
@@ -601,8 +601,18 @@ func (m *Model) ensureCursorVisible() {
 		m.listOffset = m.cursor
 	}
 
-	if m.cursor >= m.listOffset+visibleHeight {
-		m.listOffset = m.cursor - visibleHeight + 1
+	// When scrolled past the top, the "↑ more above" indicator takes one
+	// line from the visible area, so reduce the effective height.
+	effective := visibleHeight
+	if m.listOffset > 0 {
+		effective--
+	}
+	if effective < 1 {
+		effective = 1
+	}
+
+	if m.cursor >= m.listOffset+effective {
+		m.listOffset = m.cursor - effective + 1
 	}
 
 	if m.listOffset < 0 {

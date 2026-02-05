@@ -268,13 +268,10 @@ func (m Model) View() string {
 
 	view := lipglossJoinHorizontal(left, right)
 
-	if m.expandedItem >= 0 {
-		items := m.filteredItems()
-		if m.expandedItem < len(items) {
-			popup := m.renderExpandedItem(items[m.expandedItem])
-			view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
-				lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
-		}
+	if m.expandedItem >= 0 && m.expandedItem < len(m.filteredItems()) {
+		popup := m.renderExpandedItem()
+		view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
+			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
 	}
 
 	return view

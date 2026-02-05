@@ -174,83 +174,126 @@ func (m Model) renderRight() string {
 	b := &strings.Builder{}
 
 	if m.table == "" {
-		return m.renderTableDetails(b)
+		fmt.Fprintln(b, titleStyle.Render("Table Details"))
+	} else {
+		fmt.Fprintln(b, titleStyle.Render("Item Details"))
 	}
-	return m.renderItemDetails(b)
+
+	fmt.Fprint(b, m.detailViewport.View())
+
+	// Show scroll hint when content overflows
+	if m.detailViewport.TotalLineCount() > m.detailViewport.VisibleLineCount() {
+		pct := int(m.detailViewport.ScrollPercent() * 100)
+		fmt.Fprintf(b, "\n%s", dimText.Render(fmt.Sprintf("  ↕ %d%% (pgup/pgdn)", pct)))
+	}
+
+	return b.String()
 }
 
-func (m Model) renderTableDetails(b *strings.Builder) string {
-	fmt.Fprintln(b, titleStyle.Render("Table Details"))
+func (m Model) buildTableDetailsContent() string {
+	var b strings.Builder
 
 	tables := m.filteredTables()
 	if len(tables) == 0 || m.cursor >= len(tables) {
-		fmt.Fprintln(b, dimText.Render("No table selected"))
+		fmt.Fprintln(&b, dimText.Render("No table selected"))
 		return b.String()
 	}
 
 	if m.description == nil {
-		fmt.Fprintln(b, dimText.Render("Loading details..."))
+		fmt.Fprintln(&b, dimText.Render("Loading details..."))
 		return b.String()
 	}
 
 	d := m.description
-	fmt.Fprintln(b)
-	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Name:"), d.Name)
-	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Status:"), d.Status)
-	fmt.Fprintf(b, "%s  %d\n", labelStyle.Render("Items:"), d.ItemCount)
-	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Size:"), formatBytes(d.TableSizeBytes))
-	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Created:"), d.CreationDateTime.Format("2006-01-02 15:04:05"))
-	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Billing:"), d.BillingMode)
+	fmt.Fprintln(&b)
+	fmt.Fprintf(&b, "%s  %s\n", labelStyle.Render("Name:"), d.Name)
+	fmt.Fprintf(&b, "%s  %s\n", labelStyle.Render("Status:"), d.Status)
+	fmt.Fprintf(&b, "%s  %d\n", labelStyle.Render("Items:"), d.ItemCount)
+	fmt.Fprintf(&b, "%s  %s\n", labelStyle.Render("Size:"), formatBytes(d.TableSizeBytes))
+	fmt.Fprintf(&b, "%s  %s\n", labelStyle.Render("Created:"), d.CreationDateTime.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(&b, "%s  %s\n", labelStyle.Render("Billing:"), d.BillingMode)
 
 	if d.BillingMode == "PROVISIONED" {
-		fmt.Fprintf(b, "%s  %d RCU / %d WCU\n", labelStyle.Render("Capacity:"), d.ReadCapacity, d.WriteCapacity)
+		fmt.Fprintf(&b, "%s  %d RCU / %d WCU\n", labelStyle.Render("Capacity:"), d.ReadCapacity, d.WriteCapacity)
 	}
 
-	fmt.Fprintln(b)
-	fmt.Fprintln(b, titleStyle.Render("Key Schema"))
+	fmt.Fprintln(&b)
+	fmt.Fprintln(&b, titleStyle.Render("Key Schema"))
 	for _, ks := range d.KeySchema {
 		attrType := attributeType(d.AttributeDefinitions, ks.AttributeName)
-		fmt.Fprintf(b, "  %s (%s, %s)\n", ks.AttributeName, ks.KeyType, attrType)
+		fmt.Fprintf(&b, "  %s (%s, %s)\n", ks.AttributeName, ks.KeyType, attrType)
 	}
 
 	if len(d.GlobalSecondaryIndexes) > 0 {
-		fmt.Fprintln(b)
-		fmt.Fprintln(b, titleStyle.Render("Global Secondary Indexes"))
+		fmt.Fprintln(&b)
+		fmt.Fprintln(&b, titleStyle.Render("Global Secondary Indexes"))
 		for _, gsi := range d.GlobalSecondaryIndexes {
-			fmt.Fprintf(b, "  %s [%s]\n", gsi.Name, gsi.Status)
+			fmt.Fprintf(&b, "  %s [%s]\n", gsi.Name, gsi.Status)
 			for _, ks := range gsi.KeySchema {
 				attrType := attributeType(d.AttributeDefinitions, ks.AttributeName)
-				fmt.Fprintf(b, "    %s (%s, %s)\n", ks.AttributeName, ks.KeyType, attrType)
+				fmt.Fprintf(&b, "    %s (%s, %s)\n", ks.AttributeName, ks.KeyType, attrType)
 			}
 		}
 	}
 
-	fmt.Fprintln(b)
-	fmt.Fprintln(b, dimText.Render("ARN"))
-	fmt.Fprintf(b, "arn:aws:dynamodb:*:*:table/%s\n", d.Name)
+	fmt.Fprintln(&b)
+	fmt.Fprintln(&b, dimText.Render("ARN"))
+	fmt.Fprintf(&b, "arn:aws:dynamodb:*:*:table/%s\n", d.Name)
 
 	return b.String()
 }
 
-func (m Model) renderItemDetails(b *strings.Builder) string {
-	fmt.Fprintln(b, titleStyle.Render("Item Details"))
+func (m Model) buildItemDetailsContent() string {
+	var b strings.Builder
 
 	items := m.filteredItems()
 	if len(items) == 0 || m.cursor >= len(items) {
-		fmt.Fprintln(b, dimText.Render("No item selected"))
+		fmt.Fprintln(&b, dimText.Render("No item selected"))
 		return b.String()
 	}
 
 	item := items[m.cursor]
-	fmt.Fprintln(b)
+	fmt.Fprintln(&b)
 
 	keys := dynamodb.ItemKeys(item)
 	for _, k := range keys {
 		v := item[k]
-		fmt.Fprintf(b, "%s  %s\n", labelStyle.Render(k+":"), v)
+		fmt.Fprintf(&b, "%s  %s\n", labelStyle.Render(k+":"), v)
 	}
 
 	return b.String()
+}
+
+// detailViewportSize returns the width and height for the detail panel viewport.
+func (m Model) detailViewportSize() (int, int) {
+	rightWidth := m.width - m.width/2
+	// panelStyle: border(2h+2v) + padding(0v+2h) => content = width-4 h, height-2 v
+	contentWidth := rightWidth - 6
+	if contentWidth < 10 {
+		contentWidth = 10
+	}
+	// bodyHeight is total panel height; subtract border(2), title(1), scroll hint(1)
+	vpHeight := m.bodyHeight() - 4
+	if vpHeight < 3 {
+		vpHeight = 3
+	}
+	return contentWidth, vpHeight
+}
+
+// updateDetailViewport rebuilds the detail panel viewport content and resets scroll.
+func (m *Model) updateDetailViewport() {
+	w, h := m.detailViewportSize()
+	m.detailViewport.Width = w
+	m.detailViewport.Height = h
+
+	var content string
+	if m.table == "" {
+		content = m.buildTableDetailsContent()
+	} else {
+		content = m.buildItemDetailsContent()
+	}
+	m.detailViewport.SetContent(content)
+	m.detailViewport.GotoTop()
 }
 
 func attributeType(defs []dynamodb.AttributeDefinition, name string) string {

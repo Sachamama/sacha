@@ -14,6 +14,7 @@ func newTestModel(tables []dynamodb.Table) Model {
 	m.loading = false
 	m.width = 120
 	m.height = 40
+	m.updateDetailViewport()
 	return m
 }
 
@@ -484,14 +485,14 @@ func TestStatusHelp(t *testing.T) {
 
 	// Table list view
 	help := m.StatusHelp()
-	if help != "↑↓ move, / search, enter open, y copy ARN" {
+	if help != "↑↓ move, / search, enter open, pgup/pgdn details, y copy ARN" {
 		t.Errorf("unexpected help: %q", help)
 	}
 
 	// Items view
 	m.table = "test"
 	help = m.StatusHelp()
-	if help != "↑↓ move, / search, enter expand, y copy ARN, esc/h back" {
+	if help != "↑↓ move, / search, enter expand, pgup/pgdn details, y copy ARN, esc/h back" {
 		t.Errorf("unexpected help: %q", help)
 	}
 

@@ -129,6 +129,103 @@ Resolution precedence:
 - Release template with install instructions
 - Homebrew tap integration (optional, requires token)
 
+## Pagination & Scroll Patterns
+
+All list/table views that display AWS resources must handle pagination and scroll correctly. Follow these patterns when adding or modifying views.
+
+### AWS API Pagination
+
+Each AWS service uses token-based pagination. The client methods accept a pagination token and return the next token:
+
+| Service | Endpoint | Token Field | Page Size | Location |
+|---------|----------|-------------|-----------|----------|
+| DynamoDB | ListTables | `ExclusiveStartTableName` / `LastEvaluatedTableName` | 100 | `internal/dynamodb/client.go` |
+| DynamoDB | Scan | `ExclusiveStartKey` / `LastEvaluatedKey` | 25 | `internal/dynamodb/client.go` |
+| S3 | ListObjectsV2 | `ContinuationToken` / `NextContinuationToken` | 1000 | `internal/s3/client.go` |
+| CloudWatch | DescribeLogGroups | `NextToken` | 50 | `internal/logs/client.go` |
+
+- Client methods must accept an optional pagination token parameter and return the next token alongside results.
+- Never fetch all pages eagerly on init unless the dataset is known to be small. Load one page, then lazy-load more.
+
+### Lazy Loading (Infinite Scroll)
+
+Views that paginate must trigger loading the next page **before** the user hits the end of the list. The standard threshold is **5 items from the bottom**:
+
+```go
+if m.cursor >= len(m.filteredItems())-5 && m.nextToken != nil && !m.loadingMore {
+    m.loadingMore = true
+    return m, tea.Batch(cmd, m.loadMoreCmd())
+}
+```
+
+Key rules:
+- Check the lazy-load condition inside the cursor-down key handler (`j`, `↓`, or equivalent).
+- Guard with `!m.loadingMore` to prevent duplicate requests.
+- Set `m.loadingMore = true` before dispatching the command; reset it when the result message is handled.
+- Append new items to the existing slice — never replace the full list on a lazy-load.
+
+### "Load All" Pattern
+
+Some views (e.g., S3 objects with `A` key) allow fetching every remaining page at once. Implement this as a loop inside a `tea.Cmd` that iterates until the token is nil, then returns a single message with all accumulated results. Show a status line (e.g., "Loading all items...") while the operation runs.
+
+### Scroll Offset & Cursor Visibility
+
+Every list view tracks a `listOffset int` that determines which items are visible on screen. After any cursor movement or list mutation, call `ensureCursorVisible()` to clamp the offset:
+
+```go
+func (m *Model) ensureCursorVisible() {
+    visibleHeight := m.height - headerLines - footerLines
+    if m.cursor < m.listOffset {
+        m.listOffset = m.cursor
+    }
+    if m.cursor >= m.listOffset+visibleHeight {
+        m.listOffset = m.cursor - visibleHeight + 1
+    }
+}
+```
+
+- Recalculate visible height on terminal resize (`tea.WindowSizeMsg`).
+- When filtering changes the list length, clamp the cursor to `len(items)-1` and re-run `ensureCursorVisible()`.
+
+### Horizontal Scrolling
+
+The CloudWatch Logs tail view supports horizontal scrolling in fullscreen mode via `scrollX int`. Scroll increments by 10 characters per key press (`←`/`→` or `h`/`l`). Clamp `scrollX` to `>= 0`.
+
+### Viewport-Based Scrolling
+
+Expanded popups and preview modes use `viewport.Model` from the Bubbles library. When setting viewport dimensions, account for borders and padding:
+
+```go
+m.viewport.Width = m.width - borderHorizontal
+m.viewport.Height = m.height - borderVertical - headerHeight
+```
+
+Viewport handles its own scroll state (`↑/↓`, `pgup/pgdn`). Update `viewport.SetContent()` when the underlying data changes, and call `viewport.GotoTop()` when switching to a new item.
+
+### Pagination State in Models
+
+Each UI model must store:
+- **Pagination token** (e.g., `nextToken *string`, `lastEvaluatedKey map[string]interface{}`) — nil means no more pages.
+- **`loadingMore bool`** — prevents concurrent pagination requests.
+- **Items slice** — append-only during lazy loads; replace on full refresh or navigation change.
+
+### Message Types
+
+Define distinct message types for initial loads vs. lazy-load continuations:
+- `itemsLoadedMsg` — replaces the full list (initial load or navigation).
+- `moreItemsLoadedMsg` — appends to the existing list (lazy-load page).
+- `allItemsLoadedMsg` — replaces remaining items after a "load all" operation.
+
+Each message should carry both the items and the next pagination token.
+
+### Testing Pagination
+
+Write tests for:
+- First page load (token is nil initially, returns a token).
+- Continuation (passing a token returns next page and possibly another token).
+- Last page (returned token is nil, signaling no more data).
+- See `internal/dynamodb/client_test.go` and `internal/s3/client_test.go` for examples.
+
 ## UI Views & Keyboard Shortcuts
 
 ### Global Keys

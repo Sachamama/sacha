@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/sachamama/sacha/internal/logs"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -21,8 +20,15 @@ const (
 )
 
 type logGroupsLoadedMsg struct {
-	groups []logs.LogGroup
-	err    error
+	groups    []logs.LogGroup
+	nextToken *string
+	err       error
+}
+
+type moreLogGroupsLoadedMsg struct {
+	groups    []logs.LogGroup
+	nextToken *string
+	err       error
 }
 
 type tailUpdateMsg struct {
@@ -51,11 +57,13 @@ type Model struct {
 	width  int
 	height int
 
-	logGroups  []logs.LogGroup
-	cursor     int
-	listOffset int
-	selected   map[string]bool
-	loading    bool
+	logGroups      []logs.LogGroup
+	nextGroupToken *string
+	cursor         int
+	listOffset     int
+	selected       map[string]bool
+	loading        bool
+	loadingMore    bool
 
 	searching  bool
 	search     textinput.Model
@@ -118,7 +126,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.logGroups = msg.groups
-		m.statusLine = fmt.Sprintf("loaded %d log groups", len(msg.groups))
+		m.nextGroupToken = msg.nextToken
+		if m.nextGroupToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d log groups (more available)", len(msg.groups))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d log groups", len(msg.groups))
+		}
+	case moreLogGroupsLoadedMsg:
+		m.loadingMore = false
+		if msg.err != nil {
+			m.statusLine = msg.err.Error()
+			return m, nil
+		}
+		m.logGroups = append(m.logGroups, msg.groups...)
+		m.nextGroupToken = msg.nextToken
+		if m.nextGroupToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d log groups (more available)", len(m.logGroups))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d log groups", len(m.logGroups))
+		}
 	case logGroupCreatedMsg:
 		m.creating = false
 		if msg.err != nil {
@@ -243,6 +269,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.cursor < len(m.filteredGroups())-1 {
 					m.cursor++
 					m.ensureCursorVisible()
+				}
+				// Lazy load more log groups when near the end
+				if !m.tailing && m.nextGroupToken != nil && !m.loadingMore {
+					if m.cursor >= len(m.filteredGroups())-5 {
+						m.loadingMore = true
+						return m, m.loadMoreLogGroupsCmd()
+					}
 				}
 			}
 		case "/":
@@ -421,22 +454,20 @@ func (m Model) View() string {
 func (m Model) loadLogGroupsCmd() tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		var (
-			all   []logs.LogGroup
-			token *string
-		)
-		for {
-			groups, next, err := m.client.ListLogGroups(ctx, token)
-			if err != nil {
-				return logGroupsLoadedMsg{err: err}
-			}
-			all = append(all, groups...)
-			if next == nil || aws.ToString(next) == "" {
-				break
-			}
-			token = next
+		groups, nextToken, err := m.client.ListLogGroups(ctx, nil)
+		if err != nil {
+			return logGroupsLoadedMsg{err: err}
 		}
-		return logGroupsLoadedMsg{groups: all}
+		return logGroupsLoadedMsg{groups: groups, nextToken: nextToken}
+	}
+}
+
+func (m Model) loadMoreLogGroupsCmd() tea.Cmd {
+	token := m.nextGroupToken
+	return func() tea.Msg {
+		ctx := context.Background()
+		groups, nextToken, err := m.client.ListLogGroups(ctx, token)
+		return moreLogGroupsLoadedMsg{groups: groups, nextToken: nextToken, err: err}
 	}
 }
 

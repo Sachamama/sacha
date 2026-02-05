@@ -110,7 +110,11 @@ func (m Model) renderFunctionList(b *strings.Builder, visibleHeight int) {
 	}
 
 	if endIdx < len(functions) {
-		fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		if m.loadingMore {
+			fmt.Fprintln(b, dimText.Render("  ⟳ loading more..."))
+		} else {
+			fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		}
 	}
 }
 

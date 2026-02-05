@@ -100,7 +100,11 @@ func (m Model) renderGroups() string {
 	}
 
 	if endIdx < len(groups) {
-		fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		if m.loadingMore {
+			fmt.Fprintln(b, dimText.Render("  ⟳ loading more..."))
+		} else {
+			fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		}
 	}
 
 	fmt.Fprintf(b, "\n%s\n", dimText.Render(fmt.Sprintf("Selected: %d | Total: %d", m.selectedCount(), len(m.logGroups))))

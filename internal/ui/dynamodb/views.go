@@ -109,7 +109,11 @@ func (m Model) renderTableList(b *strings.Builder, visibleHeight int) {
 	}
 
 	if endIdx < len(tables) {
-		fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		if m.loadingMore {
+			fmt.Fprintln(b, dimText.Render("  ⟳ loading more..."))
+		} else {
+			fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		}
 	}
 }
 
@@ -137,7 +141,11 @@ func (m Model) renderItemList(b *strings.Builder, visibleHeight int) {
 	}
 
 	if endIdx < len(items) {
-		fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		if m.loadingMore {
+			fmt.Fprintln(b, dimText.Render("  ⟳ loading more..."))
+		} else {
+			fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+		}
 	}
 }
 

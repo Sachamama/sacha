@@ -2,12 +2,13 @@
 
 <a href="https://buymeacoffee.com/sachamama"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" height="36"></a>
 
-sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs and S3, with an extensible architecture for more AWS services.
+sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs, S3, and DynamoDB, with an extensible architecture for more AWS services.
 
 ## Highlights
 - Two-pane TUI for fast AWS resource exploration.
 - **CloudWatch Logs**: Search, multi-select, and tail multiple log groups. JSON logs auto-format as tables.
 - **S3**: Browse buckets, download files and folders recursively, preview text content.
+- **DynamoDB**: Browse tables, scan items with lazy loading, view table details and item attributes.
 - Remembers your last region/service and plays nicely with AWS profiles.
 - Minimal dependencies; install and run with a single command.
 
@@ -96,7 +97,7 @@ sacha --profile my-aws-profile --region us-east-1
 Global flags:
 - `--profile` – AWS profile to use
 - `--region` – AWS region
-- `--service` – AWS service (`cloudwatch-logs`, `s3`)
+- `--service` – AWS service (`cloudwatch-logs`, `s3`, `dynamodb`)
 - `--verbose` – enable debug logging
 - `--version` – show version information
 
@@ -129,6 +130,15 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 - Preview text files with `p`.
 - Copy S3 URI to clipboard with `y`.
 - Downloads saved to `./sacha-downloads/` preserving folder structure.
+
+### DynamoDB
+- Browse tables in a two-pane interface with table details in the right panel.
+- View table metadata: status, item count, size, billing mode, key schema, and GSIs.
+- Scan table items with paginated lazy loading.
+- Search/filter tables and items with `/`.
+- Expand any item to view full attribute details in a scrollable popup.
+- Copy table ARN to clipboard with `y`.
+- Supports all DynamoDB attribute types: strings, numbers, booleans, binary, sets, lists, and maps.
 
 ## Keybindings
 
@@ -172,6 +182,19 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 | `p` | Preview text file |
 | `y` | Copy S3 URI |
 | `esc/backspace` | Go back |
+
+### DynamoDB
+| Key | Action |
+|-----|--------|
+| `↑/↓` or `j/k` | Navigate |
+| `/` | Search/filter |
+| `enter` | Open table (scan items) |
+| `enter/space` | Expand item (in items view) |
+| `y` | Copy table ARN |
+| `↑/↓` or `j/k` | Scroll in expanded view |
+| `pgup/pgdn` | Page scroll in expanded view |
+| `esc` | Close expanded view |
+| `esc/backspace/h` | Go back to tables |
 
 ## Development
 

@@ -89,16 +89,22 @@ func (m Model) renderFunctionList(b *strings.Builder, visibleHeight int) {
 		if runtime == "" {
 			runtime = "n/a"
 		}
-		line := fmt.Sprintf("  %s  %s", f.Name, dimText.Render(runtime))
+		// Build plain text first, truncate, then apply styling
+		// to avoid breaking ANSI escape codes during truncation.
+		line := fmt.Sprintf("  %s  %s", f.Name, runtime)
 
-		// Truncate if too wide
 		maxWidth := m.width/2 - 6
+		truncated := false
 		if maxWidth > 0 && len(line) > maxWidth {
 			line = line[:maxWidth-3] + "..."
+			truncated = true
 		}
 
 		if i == m.cursor {
 			line = cursorStyle.Render(line)
+		} else if !truncated {
+			// Apply dim styling to runtime portion only when not truncated
+			line = fmt.Sprintf("  %s  %s", f.Name, dimText.Render(runtime))
 		}
 		fmt.Fprintln(b, line)
 	}

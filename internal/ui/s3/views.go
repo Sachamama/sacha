@@ -27,6 +27,9 @@ var (
 	dimText = lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 
+	labelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("33"))
+
 	statusStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("44"))
 
@@ -195,9 +198,9 @@ func (m Model) renderRight() string {
 			region = "loading..."
 		}
 		fmt.Fprintln(b)
-		fmt.Fprintf(b, "Name:     %s\n", bucket.Name)
-		fmt.Fprintf(b, "Created:  %s\n", bucket.CreationDate.Format("2006-01-02 15:04:05"))
-		fmt.Fprintf(b, "Region:   %s\n", region)
+		fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Name:"), bucket.Name)
+		fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Created:"), bucket.CreationDate.Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Region:"), region)
 		fmt.Fprintln(b)
 		fmt.Fprintln(b, dimText.Render("URIs"))
 		fmt.Fprintf(b, "S3:       s3://%s/\n", bucket.Name)
@@ -221,7 +224,7 @@ func (m Model) renderRight() string {
 		obj := objects[m.cursor]
 		if obj.IsPrefix {
 			fmt.Fprintln(b)
-			fmt.Fprintf(b, "Folder:   %s\n", obj.Name)
+			fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Folder:"), obj.Name)
 			fmt.Fprintln(b)
 			fmt.Fprintln(b, dimText.Render("URIs"))
 			fmt.Fprintf(b, "S3:       s3://%s/%s\n", m.bucket, obj.Key)
@@ -236,12 +239,12 @@ func (m Model) renderRight() string {
 	}
 
 	fmt.Fprintln(b)
-	fmt.Fprintf(b, "Key:           %s\n", m.details.Key)
-	fmt.Fprintf(b, "Size:          %s (%d bytes)\n", formatSize(m.details.Size), m.details.Size)
-	fmt.Fprintf(b, "Last Modified: %s\n", m.details.LastModified.Format("2006-01-02 15:04:05"))
-	fmt.Fprintf(b, "Storage Class: %s\n", m.details.StorageClass)
-	fmt.Fprintf(b, "Content-Type:  %s\n", m.details.ContentType)
-	fmt.Fprintf(b, "ETag:          %s\n", m.details.ETag)
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Key:"), m.details.Key)
+	fmt.Fprintf(b, "%s  %s (%d bytes)\n", labelStyle.Render("Size:"), formatSize(m.details.Size), m.details.Size)
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Modified:"), m.details.LastModified.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Storage:"), m.details.StorageClass)
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Type:"), m.details.ContentType)
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("ETag:"), m.details.ETag)
 	fmt.Fprintln(b)
 	fmt.Fprintln(b, dimText.Render("URIs"))
 	fmt.Fprintf(b, "S3:            s3://%s/%s\n", m.bucket, m.details.Key)

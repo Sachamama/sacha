@@ -28,14 +28,32 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
 
-      - name: Get next patch version
+      - name: Determine semver bump from commits
         id: version
         run: |
           latest=$(git tag --sort=-v:refname | grep '^v' | head -1)
           if [ -z "$latest" ]; then
             echo "tag=v0.1.0" >> "$GITHUB_OUTPUT"
           else
-            next=$(echo "$latest" | awk -F. '{print $1"."$2"."$3+1}')
+            # Analyze commits since last tag for conventional commit types
+            commits=$(git log "${latest}..HEAD" --pretty=format:"%s")
+            bump="patch"
+            while IFS= read -r msg; do
+              if echo "$msg" | grep -qE '^feat(\(.+\))?!?:'; then
+                bump="minor"
+                break
+              fi
+            done <<< "$commits"
+
+            major=$(echo "$latest" | sed 's/^v//' | cut -d. -f1)
+            minor=$(echo "$latest" | cut -d. -f2)
+            patch=$(echo "$latest" | cut -d. -f3)
+
+            if [ "$bump" = "minor" ]; then
+              next="v${major}.$((minor + 1)).0"
+            else
+              next="v${major}.${minor}.$((patch + 1))"
+            fi
             echo "tag=$next" >> "$GITHUB_OUTPUT"
           fi
           echo "Next tag: $(grep tag "$GITHUB_OUTPUT")"

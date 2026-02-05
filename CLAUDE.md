@@ -28,10 +28,19 @@ go test -run TestName ./internal/config/
 
 ### Git Hooks
 
-The project includes pre-commit hooks that run automatically before each commit:
+The project includes hooks that run automatically:
+
+**Pre-commit** (`.githooks/pre-commit`):
 1. **Format check** - Verifies code is formatted with gofumpt
 2. **Lint** - Runs golangci-lint on changed files
 3. **Tests** - Runs the full test suite with race detection
+
+**Commit message lint** (`.githooks/commit-msg`):
+- Enforces [Conventional Commits](https://www.conventionalcommits.org/) format: `<type>[scope]: <description>`
+- Allowed types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `ci`, `build`, `style`, `revert`
+- Description must start lowercase, first line max 72 characters
+- Breaking changes use `!` suffix: `feat!: redesign config format`
+- Merge commits are allowed through automatically
 
 To enable hooks after cloning:
 ```bash
@@ -42,6 +51,30 @@ Or manually:
 ```bash
 git config core.hooksPath .githooks
 ```
+
+### Git Worktree Workflow
+
+Always use `git worktree` to create feature branches. This avoids conflicts with uncommitted work on the main branch and keeps the primary working tree clean.
+
+```bash
+# Create a worktree with a new feature branch
+git worktree add ../sacha-<short-name> -b claude/<branch-name>
+
+# Work, commit, and push from the worktree directory
+cd ../sacha-<short-name>
+# ... make changes ...
+git add <files> && git commit -m "feat: description"
+git push -u origin claude/<branch-name>
+
+# Clean up after PR is merged
+git worktree remove ../sacha-<short-name>
+```
+
+Key rules:
+- Never commit directly to `main` — always use a feature branch via worktree
+- Name worktree directories `../sacha-<short-name>` to keep them adjacent to the main repo
+- Name branches `claude/<descriptive-name>` for AI-authored changes
+- Remove worktrees after the PR is merged to avoid stale checkouts
 
 ### Version Information
 
@@ -131,6 +164,56 @@ Resolution precedence:
 - Changelog generation (groups commits by type: features, bug fixes, performance)
 - Release template with install instructions
 - Homebrew tap integration (optional, requires token)
+
+## GitHub Repository Best Practices
+
+The repository is configured with the following GitHub best practices. Maintain these when making changes.
+
+### Branch Protection (`main`)
+
+- **1 approving review** required on all PRs
+- **Stale reviews dismissed** automatically when new commits are pushed
+- **Required status checks** (`test`, `lint`, `security`) must pass and be up-to-date with base
+- **Linear history** enforced (no merge commits)
+- **Force pushes** and **branch deletions** blocked
+- **Conversation resolution** required before merging
+
+### Merge Strategy
+
+- **Squash merge only** — merge commits and rebase merges are disabled
+- **Delete branch on merge** enabled — head branches are cleaned up automatically
+- **Auto-merge** enabled — PRs can be set to merge automatically once checks pass
+
+### Dependabot (`.github/dependabot.yml`)
+
+- **Go modules**: Weekly updates on Mondays, grouped by `aws-sdk` and `charmbracelet`
+- **GitHub Actions**: Weekly updates on Mondays
+- Dependency PRs are auto-labeled (`type: dependencies` or `type: ci`)
+
+### Security
+
+- **Dependabot vulnerability alerts** enabled
+- **Automated security fixes** enabled
+- **Secret scanning** + **push protection** enabled
+- **SECURITY.md** defines responsible disclosure policy
+
+### Issue & PR Templates
+
+- **Bug report** (`.github/ISSUE_TEMPLATE/bug_report.yml`) — structured form with version, OS, repro steps
+- **Feature request** (`.github/ISSUE_TEMPLATE/feature_request.yml`) — problem, solution, area dropdown
+- **PR template** (`.github/pull_request_template.md`) — summary, changes, test plan, related issues
+
+### Labels
+
+Beyond GitHub defaults, the repo uses structured labels:
+
+| Category | Labels |
+|----------|--------|
+| Priority | `priority: critical`, `priority: high`, `priority: medium`, `priority: low` |
+| Area | `area: cloudwatch`, `area: s3`, `area: dynamodb`, `area: lambda`, `area: ui`, `area: config` |
+| Type | `type: breaking-change`, `type: refactor`, `type: performance`, `type: security`, `type: dependencies`, `type: ci` |
+
+When adding a new AWS service, create a corresponding `area: <service>` label.
 
 ## Pagination & Scroll Patterns
 

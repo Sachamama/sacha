@@ -132,6 +132,56 @@ Resolution precedence:
 - Release template with install instructions
 - Homebrew tap integration (optional, requires token)
 
+## GitHub Repository Best Practices
+
+The repository is configured with the following GitHub best practices. Maintain these when making changes.
+
+### Branch Protection (`main`)
+
+- **1 approving review** required on all PRs
+- **Stale reviews dismissed** automatically when new commits are pushed
+- **Required status checks** (`test`, `lint`, `security`) must pass and be up-to-date with base
+- **Linear history** enforced (no merge commits)
+- **Force pushes** and **branch deletions** blocked
+- **Conversation resolution** required before merging
+
+### Merge Strategy
+
+- **Squash merge only** — merge commits and rebase merges are disabled
+- **Delete branch on merge** enabled — head branches are cleaned up automatically
+- **Auto-merge** enabled — PRs can be set to merge automatically once checks pass
+
+### Dependabot (`.github/dependabot.yml`)
+
+- **Go modules**: Weekly updates on Mondays, grouped by `aws-sdk` and `charmbracelet`
+- **GitHub Actions**: Weekly updates on Mondays
+- Dependency PRs are auto-labeled (`type: dependencies` or `type: ci`)
+
+### Security
+
+- **Dependabot vulnerability alerts** enabled
+- **Automated security fixes** enabled
+- **Secret scanning** + **push protection** enabled
+- **SECURITY.md** defines responsible disclosure policy
+
+### Issue & PR Templates
+
+- **Bug report** (`.github/ISSUE_TEMPLATE/bug_report.yml`) — structured form with version, OS, repro steps
+- **Feature request** (`.github/ISSUE_TEMPLATE/feature_request.yml`) — problem, solution, area dropdown
+- **PR template** (`.github/pull_request_template.md`) — summary, changes, test plan, related issues
+
+### Labels
+
+Beyond GitHub defaults, the repo uses structured labels:
+
+| Category | Labels |
+|----------|--------|
+| Priority | `priority: critical`, `priority: high`, `priority: medium`, `priority: low` |
+| Area | `area: cloudwatch`, `area: s3`, `area: dynamodb`, `area: lambda`, `area: ui`, `area: config` |
+| Type | `type: breaking-change`, `type: refactor`, `type: performance`, `type: security`, `type: dependencies`, `type: ci` |
+
+When adding a new AWS service, create a corresponding `area: <service>` label.
+
 ## Pagination & Scroll Patterns
 
 All list/table views that display AWS resources must handle pagination and scroll correctly. Follow these patterns when adding or modifying views.

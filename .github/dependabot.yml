@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - "type: dependencies"
+    commit-message:
+      prefix: "deps"
+    groups:
+      aws-sdk:
+        patterns:
+          - "github.com/aws/aws-sdk-go-v2*"
+      charmbracelet:
+        patterns:
+          - "github.com/charmbracelet/*"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - "type: ci"
+    commit-message:
+      prefix: "ci"

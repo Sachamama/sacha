@@ -77,15 +77,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "q":
-			if !isTailing(m.service) {
+			if !isSearching(m.service) && !isTailing(m.service) {
 				return m, tea.Quit
 			}
 		case "r":
-			m.regionSelector.open(awsRegions, m.runtime.Region)
-			return m, m.regionSelector.input.Focus()
+			if !isSearching(m.service) {
+				m.regionSelector.open(awsRegions, m.runtime.Region)
+				return m, m.regionSelector.input.Focus()
+			}
 		case "s":
-			m.serviceSelector.open(serviceNames(m.services), m.runtime.Service)
-			return m, m.serviceSelector.input.Focus()
+			if !isSearching(m.service) {
+				m.serviceSelector.open(serviceNames(m.services), m.runtime.Service)
+				return m, m.serviceSelector.input.Focus()
+			}
 		}
 	}
 
@@ -221,6 +225,17 @@ type tailAware interface {
 func isTailing(m tea.Model) bool {
 	if t, ok := m.(tailAware); ok {
 		return t.Tailing()
+	}
+	return false
+}
+
+type searchAware interface {
+	Searching() bool
+}
+
+func isSearching(m tea.Model) bool {
+	if s, ok := m.(searchAware); ok {
+		return s.Searching()
 	}
 	return false
 }

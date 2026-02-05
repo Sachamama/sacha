@@ -103,7 +103,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tables = append(m.tables, msg.tables...)
 		m.tableToken = msg.nextToken
 		m.statusLine = fmt.Sprintf("Loaded %d tables", len(m.tables))
-		return m, nil
+		return m, m.loadMoreIfNeeded()
 
 	case tableDescriptionMsg:
 		if msg.err != nil {
@@ -152,7 +152,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(m.items))
 		}
 		m.updateDetailViewport()
-		return m, nil
+		return m, m.loadMoreIfNeeded()
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
@@ -186,7 +186,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.searching = false
 			m.clampCursor()
 			m.updateDetailViewport()
-			return m, m.onCursorMove()
+			return m, tea.Batch(m.onCursorMove(), m.loadMoreIfNeeded())
 		}
 		var cmd tea.Cmd
 		m.search, cmd = m.search.Update(msg)
@@ -473,6 +473,37 @@ func (m Model) buildColumns() []string {
 	return append(keyColumns, otherColumns...)
 }
 
+// loadMoreIfNeeded loads the next page if a filter is active and the filtered
+// results don't fill the visible list height.
+func (m *Model) loadMoreIfNeeded() tea.Cmd {
+	if m.search.Value() == "" {
+		return nil
+	}
+	if m.loadingMore {
+		return nil
+	}
+	if m.table == "" {
+		// Table list pagination
+		if m.tableToken == nil {
+			return nil
+		}
+		if len(m.filteredTables()) >= m.listHeight() {
+			return nil
+		}
+		m.loadingMore = true
+		return m.loadMoreTablesCmd()
+	}
+	// Items pagination
+	if m.lastEvaluatedKey == nil {
+		return nil
+	}
+	if len(m.filteredItems()) >= m.listHeight() {
+		return nil
+	}
+	m.loadingMore = true
+	return m.loadMoreItemsCmd()
+}
+
 // Commands
 
 func (m Model) loadTablesCmd() tea.Cmd {
@@ -530,6 +561,11 @@ func (m Model) loadMoreItemsCmd() tea.Cmd {
 		result, err := m.client.Scan(ctx, tableName, startKey, scanPageSize)
 		return moreItemsLoadedMsg{result: result, err: err}
 	}
+}
+
+// Searching reports whether the model has an active text input.
+func (m Model) Searching() bool {
+	return m.searching
 }
 
 // StatusHelp returns context-aware help text for the status bar.

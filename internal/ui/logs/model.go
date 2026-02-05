@@ -145,6 +145,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d log groups", len(m.logGroups))
 		}
+		return m, m.loadMoreIfNeeded()
 	case logGroupCreatedMsg:
 		m.creating = false
 		if msg.err != nil {
@@ -179,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.Type {
 			case tea.KeyEnter, tea.KeyEscape:
 				m.searching = false
-				return m, nil
+				return m, m.loadMoreIfNeeded()
 			}
 			var cmd tea.Cmd
 			m.search, cmd = m.search.Update(msg)
@@ -252,6 +253,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.eventCursor > 0 {
 					m.eventCursor--
 					m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+					m.ensureEventCursorVisible()
 				}
 			} else {
 				if m.cursor > 0 {
@@ -264,6 +266,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.eventCursor < len(m.events)-1 {
 					m.eventCursor++
 					m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+					m.ensureEventCursorVisible()
 				}
 			} else {
 				if m.cursor < len(m.filteredGroups())-1 {
@@ -343,6 +346,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.setViewportSize(m.bodyHeight())
 				m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+				m.ensureEventCursorVisible()
 			}
 		case "q", "esc":
 			if m.tailing {
@@ -355,6 +359,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.tailing {
 				m.jsonView = !m.jsonView
 				m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+				m.ensureEventCursorVisible()
 				return m, nil
 			}
 		case "x":
@@ -379,16 +384,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if len(msg.events) > 0 {
+			wasAtEnd := len(m.events) == 0 || m.eventCursor >= len(m.events)-1
 			m.tailStart = msg.nextStart
 			m.events = append(m.events, msg.events...)
 			if len(m.events) > 1000 {
-				m.events = m.events[len(m.events)-1000:]
+				trimmed := len(m.events) - 1000
+				m.events = m.events[trimmed:]
+				if !wasAtEnd {
+					m.eventCursor -= trimmed
+					if m.eventCursor < 0 {
+						m.eventCursor = 0
+					}
+				}
 			}
-			// Keep cursor in bounds
-			if m.eventCursor >= len(m.events) {
+			// Auto-scroll to latest events when cursor was at the end
+			if wasAtEnd {
+				m.eventCursor = len(m.events) - 1
+			} else if m.eventCursor >= len(m.events) {
 				m.eventCursor = len(m.events) - 1
 			}
 			m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+			m.ensureEventCursorVisible()
 		}
 		if m.tailing {
 			return m, tea.Tick(m.pollInterval, func(time.Time) tea.Msg { return pollTailMsg{} })
@@ -471,6 +487,25 @@ func (m Model) loadMoreLogGroupsCmd() tea.Cmd {
 	}
 }
 
+// loadMoreIfNeeded loads the next page if a filter is active and the filtered
+// results don't fill the visible list height.
+func (m *Model) loadMoreIfNeeded() tea.Cmd {
+	if m.tailing {
+		return nil
+	}
+	if m.search.Value() == "" {
+		return nil
+	}
+	if m.nextGroupToken == nil || m.loadingMore {
+		return nil
+	}
+	if len(m.filteredGroups()) >= m.listHeight() {
+		return nil
+	}
+	m.loadingMore = true
+	return m.loadMoreLogGroupsCmd()
+}
+
 func (m Model) pollTailCmd() tea.Cmd {
 	groups := m.selectedGroups()
 	start := m.tailStart
@@ -549,6 +584,11 @@ func (m Model) selectedCount() int {
 // Tailing reports whether the model is actively tailing logs.
 func (m Model) Tailing() bool {
 	return m.tailing
+}
+
+// Searching reports whether the model has an active text input.
+func (m Model) Searching() bool {
+	return m.searching || m.creating
 }
 
 // StatusHelp returns context-aware help text for the status bar.
@@ -648,5 +688,37 @@ func (m *Model) ensureCursorVisible() {
 
 	if m.listOffset < 0 {
 		m.listOffset = 0
+	}
+}
+
+// eventContentOffset returns the number of header lines rendered before event
+// rows in the viewport content. Table view prepends a blank line and a header
+// row; plain view starts immediately with event rows.
+func (m *Model) eventContentOffset() int {
+	if !m.jsonView {
+		return 0
+	}
+	for i, e := range m.events {
+		if i > 10 {
+			break
+		}
+		if parseJSONLog(e.Message) != nil {
+			return 2 // blank line + header row in table view
+		}
+	}
+	return 0
+}
+
+// ensureEventCursorVisible adjusts the viewport's YOffset so the line
+// corresponding to eventCursor is within the visible area.
+func (m *Model) ensureEventCursorVisible() {
+	if len(m.events) == 0 || m.view.Height <= 0 {
+		return
+	}
+	cursorLine := m.eventCursor + m.eventContentOffset()
+	if cursorLine < m.view.YOffset {
+		m.view.SetYOffset(cursorLine)
+	} else if cursorLine >= m.view.YOffset+m.view.Height {
+		m.view.SetYOffset(cursorLine - m.view.Height + 1)
 	}
 }

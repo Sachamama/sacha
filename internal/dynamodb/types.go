@@ -21,16 +21,16 @@ type AttributeDefinition struct {
 
 // TableDescription contains detailed metadata about a DynamoDB table.
 type TableDescription struct {
-	Name                 string
-	Status               string
-	ItemCount            int64
-	TableSizeBytes       int64
-	CreationDateTime     time.Time
-	KeySchema            []KeySchema
-	AttributeDefinitions []AttributeDefinition
-	BillingMode          string
-	ReadCapacity         int64
-	WriteCapacity        int64
+	Name                   string
+	Status                 string
+	ItemCount              int64
+	TableSizeBytes         int64
+	CreationDateTime       time.Time
+	KeySchema              []KeySchema
+	AttributeDefinitions   []AttributeDefinition
+	BillingMode            string
+	ReadCapacity           int64
+	WriteCapacity          int64
 	GlobalSecondaryIndexes []IndexDescription
 }
 

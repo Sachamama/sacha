@@ -169,9 +169,9 @@ func TestDescribeTable(t *testing.T) {
 				}
 				return &dynamodb.DescribeTableOutput{
 					Table: &types.TableDescription{
-						TableName:   aws.String("users"),
-						TableStatus: types.TableStatusActive,
-						ItemCount:   aws.Int64(1000),
+						TableName:      aws.String("users"),
+						TableStatus:    types.TableStatusActive,
+						ItemCount:      aws.Int64(1000),
 						TableSizeBytes: aws.Int64(524288),
 						KeySchema: []types.KeySchemaElement{
 							{AttributeName: aws.String("id"), KeyType: types.KeyTypeHash},
@@ -522,8 +522,8 @@ func TestFormatAttributeValue(t *testing.T) {
 
 func TestItemKeys(t *testing.T) {
 	item := Item{
-		"zebra": "1",
-		"alpha": "2",
+		"zebra":  "1",
+		"alpha":  "2",
 		"middle": "3",
 	}
 

@@ -45,6 +45,9 @@ type Model struct {
 	expandedItem int            // index of expanded item, -1 if none
 	expandedView viewport.Model // viewport for expanded item
 
+	// Detail panel (right side) viewport for scrollable details
+	detailViewport viewport.Model
+
 	// UI
 	width      int
 	height     int
@@ -78,6 +81,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.updateDetailViewport()
 
 	case tablesLoadedMsg:
 		m.loading = false
@@ -107,6 +111,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.currentTableName() == msg.tableName || m.table == msg.tableName {
 			m.description = msg.desc
+			m.updateDetailViewport()
 		}
 		return m, nil
 
@@ -129,6 +134,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(m.items))
 		}
+		m.updateDetailViewport()
 		return m, nil
 
 	case moreItemsLoadedMsg:
@@ -145,6 +151,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(m.items))
 		}
+		m.updateDetailViewport()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -178,11 +185,13 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter, tea.KeyEscape:
 			m.searching = false
 			m.clampCursor()
+			m.updateDetailViewport()
 			return m, nil
 		}
 		var cmd tea.Cmd
 		m.search, cmd = m.search.Update(msg)
 		m.clampCursor()
+		m.updateDetailViewport()
 		return m, cmd
 	}
 
@@ -191,6 +200,10 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor > 0 {
 			m.cursor--
 			m.ensureCursorVisible()
+			if m.table == "" {
+				m.description = nil
+			}
+			m.updateDetailViewport()
 			return m, m.onCursorMove()
 		}
 	case "down", "j":
@@ -198,6 +211,10 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor < maxIdx {
 			m.cursor++
 			m.ensureCursorVisible()
+			if m.table == "" {
+				m.description = nil
+			}
+			m.updateDetailViewport()
 			cmd := m.onCursorMove()
 			// Lazy load more when near the end
 			if m.table == "" && m.tableToken != nil && !m.loadingMore {
@@ -239,6 +256,10 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			_ = clipboard.WriteAll(arn)
 			m.statusLine = "Copied: " + arn
 		}
+	case "pgup":
+		m.detailViewport.HalfPageUp()
+	case "pgdn":
+		m.detailViewport.HalfPageDown()
 	}
 
 	return m, nil
@@ -367,6 +388,7 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 		m.items = nil
 		m.lastEvaluatedKey = nil
 		m.itemColumns = nil
+		m.updateDetailViewport()
 		return m, tea.Batch(m.scanItemsCmd(), m.fetchDescriptionForTableCmd(m.table))
 	}
 	return m, nil
@@ -386,6 +408,7 @@ func (m Model) handleBack() (tea.Model, tea.Cmd) {
 	m.description = nil
 	m.search.SetValue("")
 	m.clampCursor()
+	m.updateDetailViewport()
 	return m, m.fetchDescriptionCmd()
 }
 
@@ -518,7 +541,7 @@ func (m Model) StatusHelp() string {
 		return "enter/esc close search"
 	}
 	if m.table == "" {
-		return "↑↓ move, / search, enter open, y copy ARN"
+		return "↑↓ move, / search, enter open, pgup/pgdn details, y copy ARN"
 	}
-	return "↑↓ move, / search, enter expand, y copy ARN, esc/h back"
+	return "↑↓ move, / search, enter expand, pgup/pgdn details, y copy ARN, esc/h back"
 }

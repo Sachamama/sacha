@@ -114,10 +114,13 @@ func (m Model) View() string {
 	if status == "" {
 		status = getStatusHelp(m.service)
 	}
-	if status == "" {
-		status = "r region, s service, ctrl+c quit"
+	globalShortcuts := "r region  s service  ctrl+c quit"
+	var footer string
+	if status != "" {
+		footer = fmt.Sprintf("%s │ %s │ %s", status, globalShortcuts, version.Short())
+	} else {
+		footer = fmt.Sprintf("%s │ %s", globalShortcuts, version.Short())
 	}
-	footer := fmt.Sprintf("%s │ %s", status, version.Short())
 	return fmt.Sprintf("%s\n%s\n%s", header, body, footer)
 }
 

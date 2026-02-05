@@ -21,10 +21,11 @@ import (
 )
 
 type cliFlags struct {
-	profile string
-	region  string
-	service string
-	verbose bool
+	profile  string
+	region   string
+	service  string
+	endpoint string
+	verbose  bool
 }
 
 func main() {
@@ -50,6 +51,7 @@ func newRootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&flags.profile, "profile", "", "AWS profile")
 	cmd.PersistentFlags().StringVar(&flags.region, "region", "", "AWS region")
 	cmd.PersistentFlags().StringVar(&flags.service, "service", "", "AWS service (cloudwatch-logs)")
+	cmd.PersistentFlags().StringVar(&flags.endpoint, "endpoint", "", "custom AWS endpoint URL (e.g. http://localhost:4566)")
 	cmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "enable verbose logging")
 
 	return cmd
@@ -74,12 +76,13 @@ func run(ctx context.Context, flags cliFlags) error {
 
 	envCfg := config.FromEnv()
 	runtime := config.Resolve(config.Flags{
-		Profile: flags.profile,
-		Region:  flags.region,
-		Service: flags.service,
+		Profile:  flags.profile,
+		Region:   flags.region,
+		Service:  flags.service,
+		Endpoint: flags.endpoint,
 	}, envCfg, fileCfg)
 
-	loader := awsx.NewLoader()
+	loader := awsx.NewLoader(runtime.Endpoint)
 
 	awsCfg, err := loader.Load(ctx, runtime.Profile, runtime.Region)
 	if err != nil {

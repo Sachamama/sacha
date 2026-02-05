@@ -12,13 +12,16 @@ type loadConfigFunc func(ctx context.Context, optFns ...func(*config.LoadOptions
 
 // Loader wraps AWS SDK configuration loading to allow injection in tests.
 type Loader struct {
-	load loadConfigFunc
+	load     loadConfigFunc
+	endpoint string
 }
 
 // NewLoader returns a Loader that uses the default AWS SDK behavior.
-func NewLoader() Loader {
+// If endpoint is non-empty, it is applied as the base endpoint for all services.
+func NewLoader(endpoint string) Loader {
 	return Loader{
-		load: config.LoadDefaultConfig,
+		load:     config.LoadDefaultConfig,
+		endpoint: endpoint,
 	}
 }
 
@@ -30,6 +33,9 @@ func (l Loader) Load(ctx context.Context, profile, region string) (aws.Config, e
 	}
 	if region != "" {
 		optFns = append(optFns, config.WithRegion(region))
+	}
+	if l.endpoint != "" {
+		optFns = append(optFns, config.WithBaseEndpoint(l.endpoint))
 	}
 
 	cfg, err := l.load(ctx, optFns...)

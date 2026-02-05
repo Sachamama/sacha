@@ -24,22 +24,25 @@ type Config struct {
 
 // RuntimeConfig resolves configuration after applying precedence rules.
 type RuntimeConfig struct {
-	Profile string
-	Region  string
-	Service string
+	Profile  string
+	Region   string
+	Service  string
+	Endpoint string
 }
 
 // Flags captures CLI flag values.
 type Flags struct {
-	Profile string
-	Region  string
-	Service string
+	Profile  string
+	Region   string
+	Service  string
+	Endpoint string
 }
 
 // Env captures supported environment variables.
 type Env struct {
-	Profile string
-	Region  string
+	Profile  string
+	Region   string
+	Endpoint string
 }
 
 // DefaultRuntime builds the runtime config when no inputs are provided.
@@ -132,6 +135,14 @@ func Resolve(flags Flags, env Env, cfg *Config) RuntimeConfig {
 		result.Service = defaultService
 	}
 
+	// Endpoint (CLI flag > env var only, not persisted)
+	switch {
+	case flags.Endpoint != "":
+		result.Endpoint = flags.Endpoint
+	case env.Endpoint != "":
+		result.Endpoint = env.Endpoint
+	}
+
 	return result
 }
 
@@ -142,7 +153,8 @@ func FromEnv() Env {
 		region = os.Getenv("AWS_DEFAULT_REGION")
 	}
 	return Env{
-		Profile: os.Getenv("AWS_PROFILE"),
-		Region:  region,
+		Profile:  os.Getenv("AWS_PROFILE"),
+		Region:   region,
+		Endpoint: os.Getenv("AWS_ENDPOINT_URL"),
 	}
 }

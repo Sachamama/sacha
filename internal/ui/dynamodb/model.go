@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/sachamama/sacha/internal/dynamodb"
 )
 
@@ -34,6 +37,10 @@ type Model struct {
 	cursor     int
 	listOffset int
 
+	// Expanded item popup
+	expandedItem int            // index of expanded item, -1 if none
+	expandedView viewport.Model // viewport for expanded item
+
 	// UI
 	width      int
 	height     int
@@ -49,9 +56,10 @@ func NewModel(client *dynamodb.Client) Model {
 	ti.Placeholder = "filter"
 	ti.Prompt = "/ "
 	return Model{
-		client:  client,
-		search:  ti,
-		loading: true,
+		client:       client,
+		search:       ti,
+		loading:      true,
+		expandedItem: -1,
 	}
 }
 
@@ -143,6 +151,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle expanded item popup
+	if m.expandedItem >= 0 {
+		switch msg.String() {
+		case "esc", "q", "enter":
+			m.expandedItem = -1
+		case "up", "k":
+			m.expandedView.ScrollUp(1)
+		case "down", "j", " ":
+			m.expandedView.ScrollDown(1)
+		case "pgup":
+			m.expandedView.HalfPageUp()
+		case "pgdn":
+			m.expandedView.HalfPageDown()
+		}
+		return m, nil
+	}
+
 	// Handle search input
 	if m.searching {
 		switch msg.Type {
@@ -185,17 +210,47 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
-	case "enter":
-		return m.handleEnter()
-	case "backspace", "esc":
+	case "enter", " ":
+		if m.table != "" {
+			// In items view - expand the selected item
+			items := m.filteredItems()
+			if len(items) > 0 && m.cursor < len(items) {
+				m.expandedItem = m.cursor
+				m.expandedView = initExpandedItemView(items[m.cursor], m.itemColumns, m.width, m.height)
+			}
+			return m, nil
+		}
+		if msg.String() == "enter" {
+			return m.handleEnter()
+		}
+	case "backspace", "esc", "h":
 		return m.handleBack()
 	case "/":
 		m.searching = true
 		m.search.SetValue("")
 		return m, m.search.Focus()
+	case "y":
+		arn := m.getARN()
+		if arn != "" {
+			_ = clipboard.WriteAll(arn)
+			m.statusLine = "Copied: " + arn
+		}
 	}
 
 	return m, nil
+}
+
+func (m Model) getARN() string {
+	if m.table == "" {
+		// In table list - copy table ARN
+		tables := m.filteredTables()
+		if len(tables) == 0 || m.cursor >= len(tables) {
+			return ""
+		}
+		return fmt.Sprintf("arn:aws:dynamodb:*:*:table/%s", tables[m.cursor].Name)
+	}
+	// In items view - copy table ARN
+	return fmt.Sprintf("arn:aws:dynamodb:*:*:table/%s", m.table)
 }
 
 // View renders the model.
@@ -211,7 +266,18 @@ func (m Model) View() string {
 	left := panelStyle.Width(leftWidth - 2).Height(bodyHeight).Render(m.renderLeft())
 	right := panelStyle.Width(rightWidth - 2).Height(bodyHeight).Render(m.renderRight())
 
-	return lipglossJoinHorizontal(left, right)
+	view := lipglossJoinHorizontal(left, right)
+
+	if m.expandedItem >= 0 {
+		items := m.filteredItems()
+		if m.expandedItem < len(items) {
+			popup := m.renderExpandedItem(items[m.expandedItem])
+			view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
+				lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
+		}
+	}
+
+	return view
 }
 
 func (m Model) bodyHeight() int {
@@ -439,11 +505,14 @@ func (m Model) loadMoreItemsCmd() tea.Cmd {
 
 // StatusHelp returns context-aware help text for the status bar.
 func (m Model) StatusHelp() string {
+	if m.expandedItem >= 0 {
+		return "↑↓ scroll, pgup/pgdn page, esc close"
+	}
 	if m.searching {
 		return "enter/esc close search"
 	}
 	if m.table == "" {
-		return "↑↓ move, / search, enter open"
+		return "↑↓ move, / search, enter open, y copy ARN"
 	}
-	return "↑↓ move, / search, esc back"
+	return "↑↓ move, / search, enter expand, y copy ARN, esc/h back"
 }

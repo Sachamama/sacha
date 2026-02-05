@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/sachamama/sacha/internal/dynamodb"
 )
@@ -29,6 +30,11 @@ var (
 
 	labelStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("33"))
+
+	popupStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("63")).
+			Padding(1, 2)
 )
 
 func lipglossJoinHorizontal(left, right string) string {
@@ -267,4 +273,50 @@ func formatBytes(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func (m Model) renderExpandedItem(item dynamodb.Item) string {
+	b := &strings.Builder{}
+	fmt.Fprintln(b, titleStyle.Render("Item Details"))
+	fmt.Fprintf(b, "%s %s\n", dimText.Render("Table:"), m.table)
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, m.expandedView.View())
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, dimText.Render("↑↓/j/k scroll, pgup/pgdn page, esc close"))
+
+	maxWidth := m.width - 10
+	if maxWidth > 100 {
+		maxWidth = 100
+	}
+	return popupStyle.Width(maxWidth).Render(b.String())
+}
+
+// initExpandedItemView creates a viewport for displaying an expanded DynamoDB item.
+func initExpandedItemView(item dynamodb.Item, columns []string, width, height int) viewport.Model {
+	maxWidth := width - 10
+	if maxWidth > 100 {
+		maxWidth = 100
+	}
+	viewportHeight := height - 14
+	if viewportHeight < 5 {
+		viewportHeight = 5
+	}
+
+	// Build content: show all attributes with full values
+	var b strings.Builder
+	keys := columns
+	if len(keys) == 0 {
+		keys = dynamodb.ItemKeys(item)
+	}
+	for _, k := range keys {
+		v, ok := item[k]
+		if !ok {
+			continue
+		}
+		fmt.Fprintf(&b, "%s: %s\n", k, v)
+	}
+
+	vp := viewport.New(maxWidth-4, viewportHeight)
+	vp.SetContent(b.String())
+	return vp
 }

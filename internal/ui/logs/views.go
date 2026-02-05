@@ -58,19 +58,21 @@ var (
 
 func (m Model) renderGroups() string {
 	b := &strings.Builder{}
-	header := titleStyle.Render("Log Groups")
+	fmt.Fprintln(b, titleStyle.Render("Log Groups"))
+
 	if m.loading {
-		header += " " + dimText.Render("(loading...)")
+		fmt.Fprintln(b, dimText.Render("Loading..."))
+		return b.String()
 	}
-	fmt.Fprintln(b, header)
+
 	if m.searching {
 		fmt.Fprintln(b, m.search.View())
 	} else {
-		fmt.Fprintln(b, dimText.Render("/ search, c create"))
+		fmt.Fprintln(b, dimText.Render("Press / to filter"))
 	}
 	groups := m.filteredGroups()
 	if len(groups) == 0 {
-		fmt.Fprintln(b, "no log groups")
+		fmt.Fprintln(b, dimText.Render("No log groups found"))
 		return b.String()
 	}
 

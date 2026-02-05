@@ -32,3 +32,48 @@ func TestLoaderAppliesRegionAndProfile(t *testing.T) {
 		t.Fatalf("region not applied, got %s", captured.Region)
 	}
 }
+
+func TestLoaderAppliesEndpoint(t *testing.T) {
+	var captured config.LoadOptions
+	loader := Loader{
+		load: func(ctx context.Context, optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
+			for _, fn := range optFns {
+				if err := fn(&captured); err != nil {
+					return aws.Config{}, err
+				}
+			}
+			return aws.Config{}, nil
+		},
+		endpoint: "http://localhost:4566",
+	}
+
+	if _, err := loader.Load(context.Background(), "", "us-east-1"); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if captured.BaseEndpoint != "http://localhost:4566" {
+		t.Fatalf("endpoint not applied, got %s", captured.BaseEndpoint)
+	}
+}
+
+func TestLoaderOmitsEndpointWhenEmpty(t *testing.T) {
+	var captured config.LoadOptions
+	loader := Loader{
+		load: func(ctx context.Context, optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
+			for _, fn := range optFns {
+				if err := fn(&captured); err != nil {
+					return aws.Config{}, err
+				}
+			}
+			return aws.Config{}, nil
+		},
+	}
+
+	if _, err := loader.Load(context.Background(), "", "us-east-1"); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if captured.BaseEndpoint != "" {
+		t.Fatalf("endpoint should be empty, got %s", captured.BaseEndpoint)
+	}
+}

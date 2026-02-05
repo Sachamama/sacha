@@ -78,3 +78,27 @@ func TestResolvePrecedence(t *testing.T) {
 		t.Fatalf("region config precedence failed, got %s", runtime.Region)
 	}
 }
+
+func TestResolveEndpointPrecedence(t *testing.T) {
+	// Flag takes priority over env.
+	runtime := Resolve(
+		Flags{Endpoint: "http://flag:4566"},
+		Env{Endpoint: "http://env:4566"},
+		nil,
+	)
+	if runtime.Endpoint != "http://flag:4566" {
+		t.Fatalf("endpoint flag precedence failed, got %s", runtime.Endpoint)
+	}
+
+	// Env used when flag is empty.
+	runtime = Resolve(Flags{}, Env{Endpoint: "http://env:4566"}, nil)
+	if runtime.Endpoint != "http://env:4566" {
+		t.Fatalf("endpoint env precedence failed, got %s", runtime.Endpoint)
+	}
+
+	// Empty when neither set.
+	runtime = Resolve(Flags{}, Env{}, nil)
+	if runtime.Endpoint != "" {
+		t.Fatalf("endpoint should be empty, got %s", runtime.Endpoint)
+	}
+}

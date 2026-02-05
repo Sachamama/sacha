@@ -33,14 +33,23 @@ type Client struct {
 
 // NewClient creates a new S3 client from the provided AWS config.
 func NewClient(cfg aws.Config) *Client {
-	return &Client{
-		cfg: cfg,
-		api: s3.NewFromConfig(cfg, func(o *s3.Options) {
-			o.DisableLogOutputChecksumValidationSkipped = true
-		}),
+	c := &Client{
+		cfg:     cfg,
 		regions: make(map[string]string),
 		clients: make(map[string]S3API),
 	}
+	c.api = s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.DisableLogOutputChecksumValidationSkipped = true
+		if c.hasCustomEndpoint() {
+			o.UsePathStyle = true
+		}
+	})
+	return c
+}
+
+// hasCustomEndpoint reports whether a custom base endpoint is configured.
+func (c *Client) hasCustomEndpoint() bool {
+	return c.cfg.BaseEndpoint != nil && *c.cfg.BaseEndpoint != ""
 }
 
 // ListBuckets returns all S3 buckets.
@@ -73,6 +82,9 @@ func (c *Client) getBucketRegion(ctx context.Context, bucket string) (string, er
 	usEast1Client := s3.NewFromConfig(c.cfg, func(o *s3.Options) {
 		o.Region = "us-east-1"
 		o.DisableLogOutputChecksumValidationSkipped = true
+		if c.hasCustomEndpoint() {
+			o.UsePathStyle = true
+		}
 	})
 
 	out, err := usEast1Client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{
@@ -112,6 +124,9 @@ func (c *Client) getClientForBucket(ctx context.Context, bucket string) (S3API, 
 	client = s3.NewFromConfig(c.cfg, func(o *s3.Options) {
 		o.Region = region
 		o.DisableLogOutputChecksumValidationSkipped = true
+		if c.hasCustomEndpoint() {
+			o.UsePathStyle = true
+		}
 	})
 
 	c.mu.Lock()

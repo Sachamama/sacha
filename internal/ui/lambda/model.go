@@ -129,7 +129,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter, tea.KeyEscape:
 			m.searching = false
 			m.clampCursor()
-			return m, nil
+			return m, m.onCursorMove()
 		}
 		var cmd tea.Cmd
 		m.search, cmd = m.search.Update(msg)

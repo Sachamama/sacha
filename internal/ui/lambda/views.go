@@ -51,6 +51,8 @@ func (m Model) renderLeft() string {
 	// Search input
 	if m.searching {
 		fmt.Fprintln(b, m.search.View())
+	} else if m.search.Value() != "" {
+		fmt.Fprintln(b, statusStyle.Render(fmt.Sprintf("Filter: %s", m.search.Value())))
 	} else {
 		fmt.Fprintln(b, dimText.Render("Press / to filter"))
 	}

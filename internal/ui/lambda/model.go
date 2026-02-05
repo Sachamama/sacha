@@ -87,7 +87,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.functions = append(m.functions, msg.functions...)
 		m.nextToken = msg.nextToken
 		m.statusLine = fmt.Sprintf("Loaded %d functions", len(m.functions))
-		return m, nil
+		return m, m.loadMoreIfNeeded()
 
 	case functionDetailsMsg:
 		if msg.err != nil {
@@ -129,7 +129,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter, tea.KeyEscape:
 			m.searching = false
 			m.clampCursor()
-			return m, m.onCursorMove()
+			return m, tea.Batch(m.onCursorMove(), m.loadMoreIfNeeded())
 		}
 		var cmd tea.Cmd
 		m.search, cmd = m.search.Update(msg)
@@ -288,6 +288,22 @@ func (m Model) filteredFunctions() []lambda.Function {
 	return out
 }
 
+// loadMoreIfNeeded loads the next page if a filter is active and the filtered
+// results don't fill the visible list height.
+func (m *Model) loadMoreIfNeeded() tea.Cmd {
+	if m.search.Value() == "" {
+		return nil
+	}
+	if m.nextToken == nil || m.loadingMore {
+		return nil
+	}
+	if len(m.filteredFunctions()) >= m.listHeight() {
+		return nil
+	}
+	m.loadingMore = true
+	return m.loadMoreFunctionsCmd()
+}
+
 // Commands
 
 func (m Model) loadFunctionsCmd() tea.Cmd {
@@ -317,6 +333,11 @@ func (m Model) fetchDetailsCmd() tea.Cmd {
 		details, err := m.client.GetFunction(ctx, name)
 		return functionDetailsMsg{details: details, functionName: name, err: err}
 	}
+}
+
+// Searching reports whether the model has an active text input.
+func (m Model) Searching() bool {
+	return m.searching
 }
 
 // StatusHelp returns context-aware help text for the status bar.

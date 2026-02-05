@@ -173,7 +173,7 @@ The repository is configured with the following GitHub best practices. Maintain 
 
 - **1 approving review** required on all PRs
 - **Stale reviews dismissed** automatically when new commits are pushed
-- **Required status checks** (`test`, `lint`, `security`) must pass and be up-to-date with base
+- **Required status checks** (`Test`, `Lint`, `Security`) must pass and be up-to-date with base
 - **Linear history** enforced (no merge commits)
 - **Force pushes** and **branch deletions** blocked
 - **Conversation resolution** required before merging

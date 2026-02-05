@@ -28,10 +28,19 @@ go test -run TestName ./internal/config/
 
 ### Git Hooks
 
-The project includes pre-commit hooks that run automatically before each commit:
+The project includes hooks that run automatically:
+
+**Pre-commit** (`.githooks/pre-commit`):
 1. **Format check** - Verifies code is formatted with gofumpt
 2. **Lint** - Runs golangci-lint on changed files
 3. **Tests** - Runs the full test suite with race detection
+
+**Commit message lint** (`.githooks/commit-msg`):
+- Enforces [Conventional Commits](https://www.conventionalcommits.org/) format: `<type>[scope]: <description>`
+- Allowed types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `ci`, `build`, `style`, `revert`
+- Description must start lowercase, first line max 72 characters
+- Breaking changes use `!` suffix: `feat!: redesign config format`
+- Merge commits are allowed through automatically
 
 To enable hooks after cloning:
 ```bash

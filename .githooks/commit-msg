@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+# Commit message linter that enforces Conventional Commits format.
+# See: https://www.conventionalcommits.org/
+#
+# Format: <type>[optional scope]: <description>
+#
+# Allowed types: feat, fix, docs, chore, refactor, test, perf, ci, build, style, revert
+#
+# Install with: git config core.hooksPath .githooks
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(head -1 "$COMMIT_MSG_FILE")
+
+# Allow merge commits
+if echo "$COMMIT_MSG" | grep -qE '^Merge '; then
+    exit 0
+fi
+
+# Conventional commit pattern: type(optional-scope): description
+PATTERN='^(feat|fix|docs|chore|refactor|test|perf|ci|build|style|revert)(\(.+\))?!?: .+'
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo -e "${RED}Invalid commit message format:${NC}"
+    echo -e "  ${YELLOW}${COMMIT_MSG}${NC}"
+    echo ""
+    echo -e "Commit messages must follow Conventional Commits:"
+    echo -e "  ${GREEN}<type>[optional scope]: <description>${NC}"
+    echo ""
+    echo -e "Allowed types:"
+    echo -e "  feat, fix, docs, chore, refactor, test, perf, ci, build, style, revert"
+    echo ""
+    echo -e "Examples:"
+    echo -e "  ${GREEN}feat: add Lambda service${NC}"
+    echo -e "  ${GREEN}fix(ui): correct list height calculation${NC}"
+    echo -e "  ${GREEN}docs: update README with new commands${NC}"
+    echo -e "  ${GREEN}feat!: redesign config file format${NC}"
+    exit 1
+fi
+
+# Check that the description starts lowercase (after the colon+space)
+DESC=$(echo "$COMMIT_MSG" | sed -E 's/^[^:]+: //')
+if echo "$DESC" | grep -qE '^[A-Z]'; then
+    echo -e "${RED}Commit description should start with lowercase:${NC}"
+    echo -e "  ${YELLOW}${COMMIT_MSG}${NC}"
+    exit 1
+fi
+
+# Check line length (max 72 chars for first line)
+if [ ${#COMMIT_MSG} -gt 72 ]; then
+    echo -e "${RED}Commit message first line is too long (${#COMMIT_MSG} > 72 chars):${NC}"
+    echo -e "  ${YELLOW}${COMMIT_MSG}${NC}"
+    exit 1
+fi
+
+exit 0

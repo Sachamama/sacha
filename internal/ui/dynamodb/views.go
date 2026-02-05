@@ -275,7 +275,7 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-func (m Model) renderExpandedItem(item dynamodb.Item) string {
+func (m Model) renderExpandedItem() string {
 	b := &strings.Builder{}
 	fmt.Fprintln(b, titleStyle.Render("Item Details"))
 	fmt.Fprintf(b, "%s %s\n", dimText.Render("Table:"), m.table)

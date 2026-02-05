@@ -2,13 +2,14 @@
 
 <a href="https://buymeacoffee.com/sachamama"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" height="36"></a>
 
-sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs, S3, and DynamoDB, with an extensible architecture for more AWS services.
+sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs, S3, DynamoDB, and Lambda, with an extensible architecture for more AWS services.
 
 ## Highlights
 - Two-pane TUI for fast AWS resource exploration.
 - **CloudWatch Logs**: Search, multi-select, and tail multiple log groups. JSON logs auto-format as tables.
 - **S3**: Browse buckets, download files and folders recursively, preview text content.
 - **DynamoDB**: Browse tables, scan items with lazy loading, view table details and item attributes.
+- **Lambda**: Browse functions, view configuration details, environment variables, and layers.
 - Remembers your last region/service and plays nicely with AWS profiles.
 - Minimal dependencies; install and run with a single command.
 
@@ -97,7 +98,7 @@ sacha --profile my-aws-profile --region us-east-1
 Global flags:
 - `--profile` – AWS profile to use
 - `--region` – AWS region
-- `--service` – AWS service (`cloudwatch-logs`, `s3`, `dynamodb`)
+- `--service` – AWS service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`)
 - `--verbose` – enable debug logging
 - `--version` – show version information
 
@@ -139,6 +140,14 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 - Expand any item to view full attribute details in a scrollable popup.
 - Copy table ARN to clipboard with `y`.
 - Supports all DynamoDB attribute types: strings, numbers, booleans, binary, sets, lists, and maps.
+
+### Lambda
+- Browse Lambda functions in a two-pane interface with function details in the right panel.
+- View function configuration: runtime, handler, memory, timeout, code size, state, and architecture.
+- Search/filter functions by name or runtime with `/`.
+- Expand any function to view full details including environment variables and layers in a scrollable popup.
+- Copy function ARN to clipboard with `y`.
+- Lazy loading with pagination for large function lists.
 
 ## Keybindings
 
@@ -195,6 +204,17 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 | `pgup/pgdn` | Page scroll in expanded view |
 | `esc` | Close expanded view |
 | `esc/backspace/h` | Go back to tables |
+
+### Lambda
+| Key | Action |
+|-----|--------|
+| `↑/↓` or `j/k` | Navigate |
+| `/` | Search/filter |
+| `enter/space` | Expand function details |
+| `y` | Copy function ARN |
+| `↑/↓` or `j/k` | Scroll in expanded view |
+| `pgup/pgdn` | Page scroll in expanded view |
+| `esc` | Close expanded view |
 
 ## Development
 

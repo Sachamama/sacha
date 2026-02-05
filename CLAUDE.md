@@ -62,6 +62,9 @@ Access version info via CLI: `sacha --version`
 5. **UI** (`internal/ui/`) - Bubble Tea TUI framework
    - `app/` - Main application shell (region/service switching)
    - `logs/` - CloudWatch Logs specific UI
+   - `s3/` - S3 browser UI
+   - `dynamodb/` - DynamoDB browser UI
+   - `lambda/` - Lambda browser UI
 
 ### Plugin Architecture
 
@@ -143,6 +146,7 @@ Each AWS service uses token-based pagination. The client methods accept a pagina
 | DynamoDB | Scan | `ExclusiveStartKey` / `LastEvaluatedKey` | 25 | `internal/dynamodb/client.go` |
 | S3 | ListObjectsV2 | `ContinuationToken` / `NextContinuationToken` | 1000 | `internal/s3/client.go` |
 | CloudWatch | DescribeLogGroups | `NextToken` | 50 | `internal/logs/client.go` |
+| Lambda | ListFunctions | `Marker` / `NextMarker` | 50 | `internal/lambda/client.go` |
 
 - Client methods must accept an optional pagination token parameter and return the next token alongside results.
 - Never fetch all pages eagerly on init unless the dataset is known to be small. Load one page, then lazy-load more.
@@ -224,7 +228,13 @@ Write tests for:
 - First page load (token is nil initially, returns a token).
 - Continuation (passing a token returns next page and possibly another token).
 - Last page (returned token is nil, signaling no more data).
-- See `internal/dynamodb/client_test.go` and `internal/s3/client_test.go` for examples.
+- See `internal/dynamodb/client_test.go`, `internal/s3/client_test.go`, and `internal/lambda/client_test.go` for examples.
+
+### Scroll Memory
+
+When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an S3 bucket/folder) and then go back, the cursor position and scroll offset are restored to where they were before. This is implemented via:
+- **DynamoDB**: `savedCursor` / `savedListOffset` fields saved on enter, restored on back.
+- **S3**: A `scrollStack []scrollPosition` that pushes on enter (bucket or folder) and pops on back, supporting arbitrary folder depth.
 
 ## UI Views & Keyboard Shortcuts
 
@@ -308,6 +318,20 @@ Write tests for:
 
 **Expanded Item Popup**
 - Accessed by pressing `enter` or `space` on a selected item
+- `↑/↓` or `j/k` - Scroll up/down
+- `pgup/pgdn` - Page up/down
+- `esc` - Close popup
+
+### Lambda (`internal/ui/lambda/`)
+
+**Functions View (default)**
+- `↑/↓` or `j/k` - Navigate (lazy loads more functions near end)
+- `/` - Search/filter by name or runtime
+- `enter` or `space` - Expand selected function (popup with full details, env vars, layers)
+- `y` - Copy function ARN
+
+**Expanded Function Popup**
+- Accessed by pressing `enter` or `space` on a selected function
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
 - `esc` - Close popup

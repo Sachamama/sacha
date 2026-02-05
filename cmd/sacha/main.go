@@ -10,6 +10,7 @@ import (
 	awsx "github.com/sachamama/sacha/internal/aws"
 	"github.com/sachamama/sacha/internal/config"
 	appui "github.com/sachamama/sacha/internal/ui/app"
+	dynamodbui "github.com/sachamama/sacha/internal/ui/dynamodb"
 	logsui "github.com/sachamama/sacha/internal/ui/logs"
 	s3ui "github.com/sachamama/sacha/internal/ui/s3"
 	"github.com/sachamama/sacha/internal/version"
@@ -90,6 +91,7 @@ func run(ctx context.Context, flags cliFlags) error {
 	services := map[string]awsx.Service{
 		"cloudwatch-logs": logsui.CloudWatchLogsService{},
 		"s3":              s3ui.S3Service{},
+		"dynamodb":        dynamodbui.DynamoDBService{},
 	}
 
 	appModel, err := appui.NewModel(loader, services, runtime, awsCfg, &log.Logger)

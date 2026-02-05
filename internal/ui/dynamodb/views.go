@@ -1,0 +1,270 @@
+package dynamodb
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/sachamama/sacha/internal/dynamodb"
+)
+
+var (
+	panelStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			Padding(0, 1)
+
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("213")).
+			Bold(true)
+
+	cursorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("229")).
+			Background(lipgloss.Color("57"))
+
+	dimText = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
+
+	statusStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("44"))
+
+	labelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("33"))
+)
+
+func lipglossJoinHorizontal(left, right string) string {
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+}
+
+func (m Model) renderLeft() string {
+	b := &strings.Builder{}
+
+	if m.table == "" {
+		fmt.Fprintln(b, titleStyle.Render("DynamoDB Tables"))
+	} else {
+		fmt.Fprintln(b, titleStyle.Render(fmt.Sprintf("Table: %s", m.table)))
+	}
+
+	if m.loading {
+		fmt.Fprintln(b, dimText.Render("Loading..."))
+		return b.String()
+	}
+
+	// Search input
+	if m.searching {
+		fmt.Fprintln(b, m.search.View())
+	} else {
+		fmt.Fprintln(b, dimText.Render("Press / to filter"))
+	}
+
+	visibleHeight := m.listHeight()
+
+	if m.table == "" {
+		m.renderTableList(b, visibleHeight)
+	} else {
+		m.renderItemList(b, visibleHeight)
+	}
+
+	// Status footer
+	fmt.Fprintln(b)
+	if m.table == "" {
+		fmt.Fprintf(b, "%s\n", dimText.Render(fmt.Sprintf("Total: %d tables", len(m.tables))))
+	} else {
+		fmt.Fprintf(b, "%s\n", dimText.Render(fmt.Sprintf("Total: %d items", len(m.filteredItems()))))
+	}
+
+	if m.statusLine != "" {
+		fmt.Fprintf(b, "%s\n", statusStyle.Render(m.statusLine))
+	}
+
+	return b.String()
+}
+
+func (m Model) renderTableList(b *strings.Builder, visibleHeight int) {
+	tables := m.filteredTables()
+	if len(tables) == 0 {
+		fmt.Fprintln(b, dimText.Render("No tables found"))
+		return
+	}
+
+	if m.listOffset > 0 {
+		fmt.Fprintln(b, dimText.Render("  ↑ more above"))
+		visibleHeight--
+	}
+
+	endIdx := min(m.listOffset+visibleHeight, len(tables))
+
+	for i := m.listOffset; i < endIdx; i++ {
+		t := tables[i]
+		line := fmt.Sprintf("  %s", t.Name)
+		if i == m.cursor {
+			line = cursorStyle.Render(line)
+		}
+		fmt.Fprintln(b, line)
+	}
+
+	if endIdx < len(tables) {
+		fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+	}
+}
+
+func (m Model) renderItemList(b *strings.Builder, visibleHeight int) {
+	items := m.filteredItems()
+	if len(items) == 0 {
+		fmt.Fprintln(b, dimText.Render("No items found"))
+		return
+	}
+
+	if m.listOffset > 0 {
+		fmt.Fprintln(b, dimText.Render("  ↑ more above"))
+		visibleHeight--
+	}
+
+	endIdx := min(m.listOffset+visibleHeight, len(items))
+
+	for i := m.listOffset; i < endIdx; i++ {
+		item := items[i]
+		line := m.formatItemLine(item)
+		if i == m.cursor {
+			line = cursorStyle.Render(line)
+		}
+		fmt.Fprintln(b, line)
+	}
+
+	if endIdx < len(items) {
+		fmt.Fprintln(b, dimText.Render("  ↓ more below"))
+	}
+}
+
+func (m Model) formatItemLine(item dynamodb.Item) string {
+	if len(m.itemColumns) == 0 {
+		return "  (empty)"
+	}
+
+	// Show key columns first, truncated to fit
+	parts := make([]string, 0, len(m.itemColumns))
+	for _, col := range m.itemColumns {
+		v, ok := item[col]
+		if !ok {
+			v = "-"
+		}
+		if len(v) > 30 {
+			v = v[:27] + "..."
+		}
+		parts = append(parts, fmt.Sprintf("%s=%s", col, v))
+	}
+
+	line := "  " + strings.Join(parts, " | ")
+
+	// Truncate if too wide for panel
+	maxWidth := m.width/2 - 6
+	if maxWidth > 0 && len(line) > maxWidth {
+		line = line[:maxWidth-3] + "..."
+	}
+
+	return line
+}
+
+func (m Model) renderRight() string {
+	b := &strings.Builder{}
+
+	if m.table == "" {
+		return m.renderTableDetails(b)
+	}
+	return m.renderItemDetails(b)
+}
+
+func (m Model) renderTableDetails(b *strings.Builder) string {
+	fmt.Fprintln(b, titleStyle.Render("Table Details"))
+
+	tables := m.filteredTables()
+	if len(tables) == 0 || m.cursor >= len(tables) {
+		fmt.Fprintln(b, dimText.Render("No table selected"))
+		return b.String()
+	}
+
+	if m.description == nil {
+		fmt.Fprintln(b, dimText.Render("Loading details..."))
+		return b.String()
+	}
+
+	d := m.description
+	fmt.Fprintln(b)
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Name:"), d.Name)
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Status:"), d.Status)
+	fmt.Fprintf(b, "%s  %d\n", labelStyle.Render("Items:"), d.ItemCount)
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Size:"), formatBytes(d.TableSizeBytes))
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Created:"), d.CreationDateTime.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Billing:"), d.BillingMode)
+
+	if d.BillingMode == "PROVISIONED" {
+		fmt.Fprintf(b, "%s  %d RCU / %d WCU\n", labelStyle.Render("Capacity:"), d.ReadCapacity, d.WriteCapacity)
+	}
+
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, titleStyle.Render("Key Schema"))
+	for _, ks := range d.KeySchema {
+		attrType := attributeType(d.AttributeDefinitions, ks.AttributeName)
+		fmt.Fprintf(b, "  %s (%s, %s)\n", ks.AttributeName, ks.KeyType, attrType)
+	}
+
+	if len(d.GlobalSecondaryIndexes) > 0 {
+		fmt.Fprintln(b)
+		fmt.Fprintln(b, titleStyle.Render("Global Secondary Indexes"))
+		for _, gsi := range d.GlobalSecondaryIndexes {
+			fmt.Fprintf(b, "  %s [%s]\n", gsi.Name, gsi.Status)
+			for _, ks := range gsi.KeySchema {
+				attrType := attributeType(d.AttributeDefinitions, ks.AttributeName)
+				fmt.Fprintf(b, "    %s (%s, %s)\n", ks.AttributeName, ks.KeyType, attrType)
+			}
+		}
+	}
+
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, dimText.Render("ARN"))
+	fmt.Fprintf(b, "arn:aws:dynamodb:*:*:table/%s\n", d.Name)
+
+	return b.String()
+}
+
+func (m Model) renderItemDetails(b *strings.Builder) string {
+	fmt.Fprintln(b, titleStyle.Render("Item Details"))
+
+	items := m.filteredItems()
+	if len(items) == 0 || m.cursor >= len(items) {
+		fmt.Fprintln(b, dimText.Render("No item selected"))
+		return b.String()
+	}
+
+	item := items[m.cursor]
+	fmt.Fprintln(b)
+
+	keys := dynamodb.ItemKeys(item)
+	for _, k := range keys {
+		v := item[k]
+		fmt.Fprintf(b, "%s  %s\n", labelStyle.Render(k+":"), v)
+	}
+
+	return b.String()
+}
+
+func attributeType(defs []dynamodb.AttributeDefinition, name string) string {
+	for _, d := range defs {
+		if d.Name == name {
+			return d.Type
+		}
+	}
+	return "?"
+}
+
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}

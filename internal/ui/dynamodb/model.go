@@ -186,7 +186,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.searching = false
 			m.clampCursor()
 			m.updateDetailViewport()
-			return m, nil
+			return m, m.onCursorMove()
 		}
 		var cmd tea.Cmd
 		m.search, cmd = m.search.Update(msg)

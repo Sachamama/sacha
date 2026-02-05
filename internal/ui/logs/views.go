@@ -74,8 +74,22 @@ func (m Model) renderGroups() string {
 		return b.String()
 	}
 
+	visibleHeight := m.listHeight()
+
 	showCursor := !m.tailing || m.focus == panelGroups
-	for i, g := range groups {
+
+	if m.listOffset > 0 {
+		fmt.Fprintln(b, dimText.Render("  ↑ more above"))
+		visibleHeight--
+	}
+
+	endIdx := m.listOffset + visibleHeight
+	if endIdx > len(groups) {
+		endIdx = len(groups)
+	}
+
+	for i := m.listOffset; i < endIdx; i++ {
+		g := groups[i]
 		line := fmt.Sprintf("[%s] %s", checkbox(m.selected[g.Name]), g.Name)
 		if showCursor && i == m.cursor {
 			line = cursorStyle.Render(line)
@@ -83,6 +97,10 @@ func (m Model) renderGroups() string {
 			line = selectedStyle.Render(line)
 		}
 		fmt.Fprintln(b, line)
+	}
+
+	if endIdx < len(groups) {
+		fmt.Fprintln(b, dimText.Render("  ↓ more below"))
 	}
 
 	fmt.Fprintf(b, "\n%s\n", dimText.Render(fmt.Sprintf("Selected: %d | Total: %d", m.selectedCount(), len(m.logGroups))))

@@ -51,10 +51,11 @@ type Model struct {
 	width  int
 	height int
 
-	logGroups []logs.LogGroup
-	cursor    int
-	selected  map[string]bool
-	loading   bool
+	logGroups  []logs.LogGroup
+	cursor     int
+	listOffset int
+	selected   map[string]bool
+	loading    bool
 
 	searching  bool
 	search     textinput.Model
@@ -109,6 +110,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.setViewportSize(m.bodyHeight())
+		m.ensureCursorVisible()
 	case logGroupsLoadedMsg:
 		m.loading = false
 		if msg.err != nil {
@@ -155,6 +157,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			var cmd tea.Cmd
 			m.search, cmd = m.search.Update(msg)
+			// Reset cursor and offset when filter changes
+			m.cursor = 0
+			m.listOffset = 0
 			return m, cmd
 		}
 
@@ -225,6 +230,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				if m.cursor > 0 {
 					m.cursor--
+					m.ensureCursorVisible()
 				}
 			}
 		case "down", "j":
@@ -236,6 +242,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				if m.cursor < len(m.filteredGroups())-1 {
 					m.cursor++
+					m.ensureCursorVisible()
 				}
 			}
 		case "/":
@@ -573,4 +580,32 @@ func (m Model) bodyHeight() int {
 		return m.height
 	}
 	return h
+}
+
+func (m Model) listHeight() int {
+	// bodyHeight minus: header(1) + search hint(1) + blank(1) + footer(1) + borders(2)
+	h := m.bodyHeight() - 6
+	if h < 3 {
+		return 3
+	}
+	return h
+}
+
+func (m *Model) ensureCursorVisible() {
+	visibleHeight := m.listHeight()
+	if visibleHeight <= 0 {
+		return
+	}
+
+	if m.cursor < m.listOffset {
+		m.listOffset = m.cursor
+	}
+
+	if m.cursor >= m.listOffset+visibleHeight {
+		m.listOffset = m.cursor - visibleHeight + 1
+	}
+
+	if m.listOffset < 0 {
+		m.listOffset = 0
+	}
 }

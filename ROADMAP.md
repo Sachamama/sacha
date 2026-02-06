@@ -2,7 +2,7 @@
 
 Planned features and new AWS services, building on Sacha's existing TUI patterns.
 
-**Current services:** CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store
+**Current services:** CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store, SQS
 
 ---
 
@@ -39,26 +39,27 @@ Browse parameters by path hierarchy with folder-style navigation.
 
 ---
 
-## Phase 3: SQS Queue Browser
+## Phase 3: SQS Queue Browser _(completed)_
 
-Browse queues with message count stats. Peek messages and optionally tail incoming messages.
+Browse queues with message count stats and peek messages.
 
-- Left pane: queue list with approximate message counts (visible, in-flight, delayed)
-- Right pane: queue attributes (type FIFO/Standard, visibility timeout, redrive policy, encryption)
-- `enter` to peek messages (`ReceiveMessage` with visibility timeout 0)
-- `space` to expand queue details in popup
-- `y` to copy queue URL
+- **Queue list** — left pane shows queue names with lazy-load pagination
+- **Queue details** — right pane shows message counts (visible, in-flight, delayed), type (FIFO/Standard), visibility timeout, redrive policy, encryption
+- **Peek messages** — `enter` to peek messages via `ReceiveMessage` with visibility timeout 0 (non-destructive)
+- **Message view** — navigate peeked messages, view body (auto-formatted JSON), expand in popup
+- **Expand queue** — `space` to expand full queue attributes in scrollable popup
+- **Copy** — `y` to copy queue URL; `y` in message view copies message body
+- **Search/filter** — `/` to filter queues by name
 
-### AWS APIs
+### Files
 
-- `ListQueues` — list all queues (paginated via `NextToken`)
-- `GetQueueAttributes` — message counts, configuration
-- `ReceiveMessage` — peek at messages (visibility timeout 0)
-
-### Architecture
-
-- `internal/sqs/client.go` + `internal/sqs/types.go`
-- `internal/ui/sqs/service.go` + `internal/ui/sqs/model.go` + views + messages
+- `internal/sqs/client.go` — `ListQueues`, `GetQueueAttributes`, `PeekMessages`
+- `internal/sqs/types.go` — `Queue`, `QueueAttributes`, `Message` domain types
+- `internal/sqs/client_test.go` — 14 tests covering pagination, attribute parsing, message peeking, error handling
+- `internal/ui/sqs/service.go` — `SQSService` implementing `awsx.Service`
+- `internal/ui/sqs/model.go` — Bubble Tea model with queue list, message peek view, expanded popups
+- `internal/ui/sqs/views.go` — two-pane layout, queue list, details, message list, popup overlays
+- `internal/ui/sqs/messages.go` — `queuesLoadedMsg`, `moreQueuesLoadedMsg`, `queueAttributesMsg`, `messagesLoadedMsg`
 
 ---
 

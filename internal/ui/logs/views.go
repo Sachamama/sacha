@@ -50,6 +50,13 @@ var (
 	statusStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("44"))
 
+	labelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("33"))
+
+	warnStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true)
+
 	popupStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("63")).
@@ -120,9 +127,42 @@ func (m Model) renderGroups() string {
 
 func (m Model) renderTail() string {
 	if !m.tailing {
-		return fmt.Sprintf("%s\n%s", titleStyle.Render("Logs"), dimText.Render("Press t to start tailing selected groups"))
+		return m.renderGroupDetails()
 	}
 	return fmt.Sprintf("%s\n%s", titleStyle.Render("Logs"), m.view.View())
+}
+
+func (m Model) renderGroupDetails() string {
+	b := &strings.Builder{}
+	fmt.Fprintln(b, titleStyle.Render("Log Group Details"))
+
+	groups := m.filteredGroups()
+	if len(groups) == 0 || m.cursor >= len(groups) {
+		fmt.Fprintln(b)
+		fmt.Fprintln(b, dimText.Render("No log group selected"))
+		return b.String()
+	}
+
+	g := groups[m.cursor]
+	fmt.Fprintln(b)
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Name:"), g.Name)
+
+	if g.RetentionDays > 0 {
+		fmt.Fprintf(b, "%s  %d days\n", labelStyle.Render("Retention:"), g.RetentionDays)
+	} else {
+		fmt.Fprintf(b, "%s  Never expire\n", labelStyle.Render("Retention:"))
+	}
+
+	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Stored:"), formatBytes(g.StoredBytes))
+
+	if !g.CreationTime.IsZero() {
+		fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Created:"), g.CreationTime.Format("2006-01-02 15:04:05"))
+	}
+
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, dimText.Render("Press t to start tailing selected groups"))
+
+	return b.String()
 }
 
 func renderEvents(events []logs.TailEvent, jsonView bool, cursor, width int, showCursor bool, scrollX int) string {
@@ -396,6 +436,19 @@ func formatValue(v interface{}) string {
 	}
 }
 
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
 func checkbox(selected bool) string {
 	if selected {
 		return "x"
@@ -458,4 +511,39 @@ func initExpandedView(e logs.TailEvent, width, height int) viewport.Model {
 	vp := viewport.New(maxWidth-4, viewportHeight)
 	vp.SetContent(msg)
 	return vp
+}
+
+func (m Model) renderDeleteConfirm() string {
+	b := &strings.Builder{}
+	fmt.Fprintln(b, warnStyle.Render("Delete Log Groups"))
+	fmt.Fprintln(b)
+	fmt.Fprintf(b, "Delete %d log group(s)?\n", len(m.deleteTargets))
+	fmt.Fprintln(b)
+	for i, name := range m.deleteTargets {
+		if i >= 10 {
+			fmt.Fprintf(b, "  ... and %d more\n", len(m.deleteTargets)-10)
+			break
+		}
+		fmt.Fprintf(b, "  %s\n", name)
+	}
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, dimText.Render("y to confirm, n/esc to cancel"))
+	return popupStyle.Render(b.String())
+}
+
+func (m Model) renderRetentionPicker() string {
+	b := &strings.Builder{}
+	fmt.Fprintln(b, titleStyle.Render("Set Retention Policy"))
+	fmt.Fprintf(b, "%s\n", dimText.Render(fmt.Sprintf("Apply to %d selected group(s)", len(m.selectedGroups()))))
+	fmt.Fprintln(b)
+	for i, opt := range retentionOptions {
+		if i == m.retentionCursor {
+			fmt.Fprintf(b, "  %s %s\n", hoverPointer, cursorStyle.Render(opt.label))
+		} else {
+			fmt.Fprintf(b, "    %s\n", opt.label)
+		}
+	}
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, dimText.Render("↑↓ move, enter select, esc cancel"))
+	return popupStyle.Render(b.String())
 }

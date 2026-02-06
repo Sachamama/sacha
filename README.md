@@ -107,9 +107,12 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 ## Features
 
 ### CloudWatch Logs
-- Split-pane TUI: left pane lists log groups; right pane tails logs.
+- Split-pane TUI: left pane lists log groups; right pane shows group details or tails logs.
 - Log group list with search (`/`), cursor navigation, multi-select.
+- Right pane displays log group details: name, retention policy, stored bytes, and creation date.
 - Create new log groups with `c`.
+- Delete selected log groups with `d` (confirmation prompt).
+- Set retention policy on selected groups with `R` (picker shows: 1d, 3d, 5d, 7d, 14d, 30d, 60d, 90d, 1y, never).
 - Tail multiple log groups simultaneously with `t`.
 - Switch between left (groups) and right (tail) panels with `tab`, `left/h`, or `right/l`.
 - Focused panel highlighted with colored border; up/down navigation works within focused panel.
@@ -166,6 +169,8 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 | `space` | Toggle selection |
 | `a` | Select all |
 | `c` | Create log group |
+| `d` | Delete selected log groups |
+| `R` | Set retention policy |
 | `t` | Start tailing |
 | `tab`, `left/h`, `right/l` | Switch panel focus (while tailing) |
 | `enter/space` | Expand log event (while tailing) |

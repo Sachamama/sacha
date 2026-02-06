@@ -2,32 +2,35 @@
 
 Planned features and new AWS services, building on Sacha's existing TUI patterns.
 
-## Phase 1: CloudWatch Logs Enhancements
+## Phase 1: CloudWatch Logs Enhancements ✅ Completed
 
 Quick wins that extend the existing CloudWatch Logs service with high-value operations.
 
-### Set Retention Policy (`R` key)
+### ✅ Set Retention Policy (`R` key)
 
 Add a retention picker to set retention on selected log groups. Show standard options: 1d, 3d, 5d, 7d, 14d, 30d, 60d, 90d, 1y, never.
 
 - AWS API: `PutRetentionPolicy`
 - Reuses existing multi-select pattern
 - Files: `internal/logs/client.go`, `internal/ui/logs/model.go`
+- Completed in PR #40
 
-### Delete Log Groups (`D` key)
+### ✅ Delete Log Groups (`d` key)
 
 Delete selected log groups with a confirmation prompt. Multi-select already works.
 
 - AWS API: `DeleteLogGroup`
 - Needs confirmation overlay (y/n)
 - Files: `internal/logs/client.go`, `internal/ui/logs/model.go`
+- Completed in PR #40
 
-### Show Creation Date
+### ✅ Show Creation Date
 
 Display log group creation date in the right-pane details. `DescribeLogGroups` already returns `creationTime` — just format and display it.
 
 - No new API calls needed
 - Files: `internal/ui/logs/views.go`
+- Completed in PR #40
 
 ## Phase 2: SSM Parameter Store Browser
 

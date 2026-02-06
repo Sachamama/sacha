@@ -241,8 +241,18 @@ func (m *Model) ensureCursorVisible() {
 	if m.cursor < m.listOffset {
 		m.listOffset = m.cursor
 	}
-	if m.cursor >= m.listOffset+visibleHeight {
-		m.listOffset = m.cursor - visibleHeight + 1
+	// When scrolled past the top, the "↑ more above" indicator takes one
+	// line from the visible area, so reduce the effective height.
+	effective := visibleHeight
+	if m.listOffset > 0 {
+		effective--
+	}
+	if effective < 1 {
+		effective = 1
+	}
+
+	if m.cursor >= m.listOffset+effective {
+		m.listOffset = m.cursor - effective + 1
 	}
 	if m.listOffset < 0 {
 		m.listOffset = 0

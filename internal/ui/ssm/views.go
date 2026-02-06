@@ -162,11 +162,7 @@ func (m Model) renderRight() string {
 		// Show full details (fetched with decryption)
 		fmt.Fprintln(b)
 		fmt.Fprintf(b, "%s\n", labelStyle.Render("Value:"))
-		if m.details.Type == "SecureString" {
-			fmt.Fprintf(b, "%s\n", m.details.Value)
-		} else {
-			fmt.Fprintf(b, "%s\n", m.details.Value)
-		}
+		fmt.Fprintf(b, "%s\n", m.details.Value)
 
 		fmt.Fprintln(b)
 		fmt.Fprintf(b, "%s  %d\n", labelStyle.Render("Version:"), m.details.Version)

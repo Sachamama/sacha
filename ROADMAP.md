@@ -2,11 +2,11 @@
 
 Planned features and new AWS services, building on Sacha's existing TUI patterns.
 
-**Current services:** CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store
+## Phase 1: CloudWatch Logs Enhancements ✅ Completed
 
 ---
 
-## Phase 1: CloudWatch Logs Enhancements _(completed)_
+### ✅ Set Retention Policy (`R` key)
 
 All three items shipped in [#40](https://github.com/Sachamama/sacha/pull/40):
 
@@ -18,24 +18,19 @@ All three items shipped in [#40](https://github.com/Sachamama/sacha/pull/40):
 
 ## Phase 2: SSM Parameter Store Browser _(completed)_
 
-Browse parameters by path hierarchy with folder-style navigation.
+- AWS API: `DeleteLogGroup`
+- Needs confirmation overlay (y/n)
+- Files: `internal/logs/client.go`, `internal/ui/logs/model.go`
+- Completed in PR #40
 
-- **Path navigation** — `enter` to drill into path prefixes, `esc/backspace/h` to go back
-- **Details pane** — parameter value (with decryption), type, version, last modified, ARN
-- **Expanded popup** — `enter/space` on a parameter to view full details in a scrollable overlay
-- **Copy** — `y` to copy parameter value or path
-- **Lazy-load pagination** — loads more parameters near the bottom of the list
-- **Scroll memory** — cursor position restored on back navigation via `scrollStack`
+### ✅ Show Creation Date
 
 ### Files
 
-- `internal/ssm/client.go` — `GetParametersByPath`, `GetParameter`, `ListTopLevelPaths`
-- `internal/ssm/types.go` — `Parameter` domain type
-- `internal/ssm/client_test.go` — 16 tests covering pagination, error handling, path grouping
-- `internal/ui/ssm/service.go` — `SSMService` implementing `awsx.Service`
-- `internal/ui/ssm/model.go` — Bubble Tea model with scroll stack, lazy-load, expanded popup
-- `internal/ui/ssm/views.go` — two-pane layout, parameter list, details, popup overlay
-- `internal/ui/ssm/messages.go` — `parametersLoadedMsg`, `moreParametersLoadedMsg`, `parameterDetailMsg`
+
+- No new API calls needed
+- Files: `internal/ui/logs/views.go`
+- Completed in PR #40
 
 ---
 

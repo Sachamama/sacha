@@ -337,12 +337,17 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 ### CloudWatch Logs (`internal/ui/logs/`)
 
 **Log Groups View (default)**
+- Split-pane mode: left panel shows log groups list, right panel shows selected group details
+- Right panel displays: log group name, retention policy, stored bytes, and creation date (when not tailing)
 - `↑/↓` or `j/k` - Navigate
 - `/` - Search/filter
 - `space` - Toggle selection
 - `a` - Select all
 - `c` - Create log group
+- `d` - Delete selected log groups (shows confirmation prompt)
+- `R` - Set retention policy on selected groups (opens retention picker: 1d, 3d, 5d, 7d, 14d, 30d, 60d, 90d, 1y, never)
 - `t` - Start tailing selected groups
+- StatusHelp text (non-tailing): `↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail`
 
 **Tailing View**
 - Split-pane mode: left panel shows groups list, right panel shows tail output

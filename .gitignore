@@ -35,3 +35,8 @@ go.work.sum
 
 # Claude Code
 .claude/
+
+# Demo recordings
+demos/*.mp4
+demos/*.gif
+demos/*.webm

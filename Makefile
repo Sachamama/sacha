@@ -13,7 +13,7 @@ LDFLAGS := -s -w \
 	-X $(MODULE)/internal/version.Date=$(DATE)
 
 .PHONY: build test run lint clean install snapshot release-dry-run setup fmt \
-	local-up local-down local-seed local-run local-reset
+	local-up local-down local-seed local-seed-live local-run local-reset
 
 build:
 	@echo "Building $(APP) $(VERSION)..."
@@ -56,24 +56,28 @@ fmt:
 
 # LocalStack targets
 LOCAL_ENDPOINT := http://localhost:4566
-LOCAL_ENV := AWS_ENDPOINT_URL=$(LOCAL_ENDPOINT) AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1
+LOCAL_ENV := AWS_ENDPOINT_URL=$(LOCAL_ENDPOINT) AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1 AWS_PAGER=""
+DOCKER_COMPOSE := $(shell docker compose version >/dev/null 2>&1 && echo "docker compose" || echo "docker-compose")
 
 local-up:
-	@docker compose up -d
+	@$(DOCKER_COMPOSE) up -d
 	@echo "Waiting for LocalStack..."
-	@until curl -s $(LOCAL_ENDPOINT)/_localstack/health | grep -q '"s3": "available"'; do sleep 1; done
+	@until curl -s $(LOCAL_ENDPOINT)/_localstack/health | grep -qE '"s3": "(available|running)"'; do sleep 1; done
 	@echo "LocalStack is ready"
 
 local-down:
-	@docker compose down
+	@$(DOCKER_COMPOSE) down
 
 local-seed:
 	@$(LOCAL_ENV) bash scripts/seed-localstack.sh
+
+local-seed-live:
+	@$(LOCAL_ENV) bash scripts/seed-localstack-live.sh
 
 local-run: build
 	@$(LOCAL_ENV) ./bin/$(APP)
 
 local-reset:
-	@docker compose down -v
+	@$(DOCKER_COMPOSE) down -v
 	@$(MAKE) local-up
 	@$(MAKE) local-seed

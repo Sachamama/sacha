@@ -2,7 +2,7 @@
 
 <a href="https://buymeacoffee.com/sachamama"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" height="36"></a>
 
-sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs, S3, DynamoDB, and Lambda, with an extensible architecture for more AWS services.
+sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs, S3, DynamoDB, Lambda, and SSM Parameter Store, with an extensible architecture for more AWS services.
 
 ## Highlights
 - Two-pane TUI for fast AWS resource exploration.
@@ -10,6 +10,7 @@ sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It
 - **S3**: Browse buckets, download files and folders recursively, preview text content.
 - **DynamoDB**: Browse tables, scan items with lazy loading, view table details and item attributes.
 - **Lambda**: Browse functions, view configuration details, environment variables, and layers.
+- **SSM Parameter Store**: Browse parameters by path hierarchy, view values with decryption, navigate folders.
 - Remembers your last region/service and plays nicely with AWS profiles.
 - Minimal dependencies; install and run with a single command.
 
@@ -98,7 +99,7 @@ sacha --profile my-aws-profile --region us-east-1
 Global flags:
 - `--profile` – AWS profile to use
 - `--region` – AWS region
-- `--service` – AWS service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`)
+- `--service` – AWS service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`, `ssm`)
 - `--verbose` – enable debug logging
 - `--version` – show version information
 
@@ -148,6 +149,16 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 - Expand any function to view full details including environment variables and layers in a scrollable popup.
 - Copy function ARN to clipboard with `y`.
 - Lazy loading with pagination for large function lists.
+
+### SSM Parameter Store
+- Browse parameters by path hierarchy in a two-pane interface.
+- Navigate into path prefixes like folders with `enter`, go back with `esc`/`backspace`.
+- View parameter details: value (with decryption), type, version, last modified, ARN.
+- Expand any parameter to view full details in a scrollable popup.
+- Copy parameter value or path to clipboard with `y`.
+- Search/filter parameters with `/`.
+- Lazy loading with pagination for large parameter sets.
+- Supports String, StringList, and SecureString parameter types.
 
 ## Keybindings
 
@@ -214,6 +225,18 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 | `y` | Copy function ARN |
 | `↑/↓` or `j/k` | Scroll in expanded view |
 | `pgup/pgdn` | Page scroll in expanded view |
+| `esc` | Close expanded view |
+
+### SSM Parameter Store
+| Key | Action |
+|-----|--------|
+| `↑/↓` or `j/k` | Navigate |
+| `/` | Search/filter |
+| `enter/space` | Open path prefix or expand parameter |
+| `y` | Copy parameter value or path |
+| `↑/↓` or `j/k` | Scroll in expanded view |
+| `pgup/pgdn` | Page scroll in expanded view |
+| `esc/backspace/h` | Go back up one level |
 | `esc` | Close expanded view |
 
 ## Development

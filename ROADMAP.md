@@ -2,106 +2,90 @@
 
 Planned features and new AWS services, building on Sacha's existing TUI patterns.
 
-## Phase 1: CloudWatch Logs Enhancements
+**Current services:** CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store
 
-Quick wins that extend the existing CloudWatch Logs service with high-value operations.
+---
 
-### Set Retention Policy (`R` key)
+## Phase 1: CloudWatch Logs Enhancements _(completed)_
 
-Add a retention picker to set retention on selected log groups. Show standard options: 1d, 3d, 5d, 7d, 14d, 30d, 60d, 90d, 1y, never.
+All three items shipped in [#40](https://github.com/Sachamama/sacha/pull/40):
 
-- AWS API: `PutRetentionPolicy`
-- Reuses existing multi-select pattern
-- Files: `internal/logs/client.go`, `internal/ui/logs/model.go`
+- **Set Retention Policy (`R` key)** — retention picker with standard options, applied to multi-selected groups via `PutRetentionPolicy`
+- **Delete Log Groups (`D` key)** — delete with confirmation overlay, multi-select support via `DeleteLogGroup`
+- **Show Creation Date** — displayed in the right-pane details panel, formatted from `creationTime`
 
-### Delete Log Groups (`D` key)
+---
 
-Delete selected log groups with a confirmation prompt. Multi-select already works.
+## Phase 2: SSM Parameter Store Browser _(completed)_
 
-- AWS API: `DeleteLogGroup`
-- Needs confirmation overlay (y/n)
-- Files: `internal/logs/client.go`, `internal/ui/logs/model.go`
+Browse parameters by path hierarchy with folder-style navigation.
 
-### Show Creation Date
+- **Path navigation** — `enter` to drill into path prefixes, `esc/backspace/h` to go back
+- **Details pane** — parameter value (with decryption), type, version, last modified, ARN
+- **Expanded popup** — `enter/space` on a parameter to view full details in a scrollable overlay
+- **Copy** — `y` to copy parameter value or path
+- **Lazy-load pagination** — loads more parameters near the bottom of the list
+- **Scroll memory** — cursor position restored on back navigation via `scrollStack`
 
-Display log group creation date in the right-pane details. `DescribeLogGroups` already returns `creationTime` — just format and display it.
+### Files
 
-- No new API calls needed
-- Files: `internal/ui/logs/views.go`
+- `internal/ssm/client.go` — `GetParametersByPath`, `GetParameter`, `ListTopLevelPaths`
+- `internal/ssm/types.go` — `Parameter` domain type
+- `internal/ssm/client_test.go` — 16 tests covering pagination, error handling, path grouping
+- `internal/ui/ssm/service.go` — `SSMService` implementing `awsx.Service`
+- `internal/ui/ssm/model.go` — Bubble Tea model with scroll stack, lazy-load, expanded popup
+- `internal/ui/ssm/views.go` — two-pane layout, parameter list, details, popup overlay
+- `internal/ui/ssm/messages.go` — `parametersLoadedMsg`, `moreParametersLoadedMsg`, `parameterDetailMsg`
 
-## Phase 2: SSM Parameter Store Browser
-
-Browse parameters by path hierarchy, reusing S3's folder-navigation and scroll-stack patterns.
-
-- Left pane: path tree (`/app/prod/db-host`, `/app/prod/db-port`, ...)
-- Right pane: parameter value, type, version, last modified
-- `y` to copy value
-- `enter` to navigate into path prefix
-- `esc/backspace` to go back up
-
-### AWS APIs
-
-- `GetParametersByPath` — list parameters under a prefix
-- `GetParameter` — fetch single parameter value
-- `DescribeParameters` — metadata and filtering
-
-### Architecture
-
-- `internal/ssm/client.go` + `internal/ssm/types.go`
-- `internal/ui/ssm/service.go` + `internal/ui/ssm/model.go`
-- Scroll memory via `scrollStack` (same as S3)
+---
 
 ## Phase 3: SQS Queue Browser
 
-Browse queues with message count stats. Peek messages and optionally tail incoming messages using the CloudWatch tailing pattern.
+Browse queues with message count stats. Peek messages and optionally tail incoming messages.
 
-- Left pane: queue list with message counts
-- Right pane: queue attributes (type, visibility timeout, redrive policy)
+- Left pane: queue list with approximate message counts (visible, in-flight, delayed)
+- Right pane: queue attributes (type FIFO/Standard, visibility timeout, redrive policy, encryption)
 - `enter` to peek messages (`ReceiveMessage` with visibility timeout 0)
-- Potential tail mode for watching incoming messages
+- `space` to expand queue details in popup
+- `y` to copy queue URL
 
 ### AWS APIs
 
-- `ListQueues` — list all queues
+- `ListQueues` — list all queues (paginated via `NextToken`)
 - `GetQueueAttributes` — message counts, configuration
-- `ReceiveMessage` — peek at messages
+- `ReceiveMessage` — peek at messages (visibility timeout 0)
 
 ### Architecture
 
 - `internal/sqs/client.go` + `internal/sqs/types.go`
-- `internal/ui/sqs/service.go` + `internal/ui/sqs/model.go`
-- Optional `Tailing()` interface for live message watching
+- `internal/ui/sqs/service.go` + `internal/ui/sqs/model.go` + views + messages
 
-## Phase 4: EC2 Browser
+---
 
-Start with instances-only, expand to sub-resources later.
+## Phase 4: EC2 Instance Browser
+
+Start with instances only. Sub-resources deferred to Phase 4b.
 
 ### 4a: EC2 Instances
 
-- Browse instances with state, type, IP, name tag
-- Start/stop instances with confirmation
-- View full instance details in expandable popup
+- Browse instances with state (color-coded), type, IP, name tag
+- `enter/space` to expand instance details
+- `y` to copy instance ID
+- `DescribeInstances` (paginated)
 
-### 4b: EC2 Sub-Resources (future)
+### 4b: EC2 Sub-Resources _(deferred)_
 
-- EBS volumes (find unattached)
-- Elastic IPs (find unassociated)
-- Security groups (view rules, find unused)
-- Key pairs (find unused)
+- EBS volumes, Elastic IPs, Security groups, Key pairs
 
-### AWS APIs
-
-- `DescribeInstances`, `StartInstances`, `StopInstances`
-- `DescribeVolumes`, `DescribeAddresses`, `DescribeSecurityGroups`, `DescribeKeyPairs`
+---
 
 ## Future Considerations
 
-Services evaluated but deferred due to complexity or niche use:
-
-| Service | Notes |
-|---------|-------|
-| CloudFormation | Stacks + resources + events view. "Find stack by resource" is a unique feature |
-| Secrets Manager | Simple list + view, but sensitive (secrets display needs masking) |
-| ECS | Very valuable but deeply nested hierarchy (cluster > service > task > container) |
-| IAM | Global service (not regional), many sub-resource types |
-| Multi-Account Switcher | Cross-cutting concern needing STS assume-role integration |
+| Service | Notes | Complexity |
+|---------|-------|------------|
+| CloudFormation | Stacks + resources + events view | Medium |
+| Secrets Manager | Simple list + view, needs value masking | Low |
+| ECS | Deeply nested hierarchy (cluster > service > task > container) | High |
+| IAM | Global service (not regional), many sub-resource types | High |
+| SNS | Topic list + subscriptions | Low |
+| Route 53 | Hosted zones + records | Medium |

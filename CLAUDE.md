@@ -54,17 +54,17 @@ git config core.hooksPath .githooks
 
 ### Git Worktree Workflow
 
-Always use `git worktree` to create feature branches. This avoids conflicts with uncommitted work on the main branch and keeps the primary working tree clean.
+Always use `git worktree` to create feature or fix branches. This avoids conflicts with uncommitted work on the main branch and keeps the primary working tree clean.
 
 ```bash
 # Create a worktree with a new feature branch
-git worktree add ../sacha-<short-name> -b claude/<branch-name>
+git worktree add ../sacha-<short-name> -b feature/<branch-name>
 
 # Work, commit, and push from the worktree directory
 cd ../sacha-<short-name>
 # ... make changes ...
 git add <files> && git commit -m "feat: description"
-git push -u origin claude/<branch-name>
+git push -u origin feature/<branch-name>
 
 # Clean up after PR is merged
 git worktree remove ../sacha-<short-name>
@@ -73,7 +73,7 @@ git worktree remove ../sacha-<short-name>
 Key rules:
 - Never commit directly to `main` — always use a feature branch via worktree
 - Name worktree directories `../sacha-<short-name>` to keep them adjacent to the main repo
-- Name branches `claude/<descriptive-name>` for AI-authored changes
+- Name branches `feature/<descriptive-name>` or `fix/<descriptive-name>` for AI-authored changes
 - Remove worktrees after the PR is merged to avoid stale checkouts
 
 ### Version Information

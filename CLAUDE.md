@@ -91,13 +91,19 @@ Access version info via CLI: `sacha --version`
 1. **CLI** (`cmd/sacha/main.go`) - Cobra-based CLI entry point with flags for profile, region, service, verbose
 2. **Config** (`internal/config/`) - Configuration with precedence: CLI > Env > File > Defaults
 3. **AWS** (`internal/aws/`) - AWS SDK v2 abstraction with pluggable Service interface
-4. **Domain** (`internal/logs/`) - CloudWatch Logs client and business logic
+4. **Domain** - Service-specific clients and business logic
+   - `internal/logs/` - CloudWatch Logs
+   - `internal/s3/` - S3
+   - `internal/dynamodb/` - DynamoDB
+   - `internal/lambda/` - Lambda
+   - `internal/ssm/` - SSM Parameter Store
 5. **UI** (`internal/ui/`) - Bubble Tea TUI framework
    - `app/` - Main application shell (region/service switching)
    - `logs/` - CloudWatch Logs specific UI
    - `s3/` - S3 browser UI
    - `dynamodb/` - DynamoDB browser UI
    - `lambda/` - Lambda browser UI
+   - `ssm/` - SSM Parameter Store browser UI
 
 ### Plugin Architecture
 
@@ -230,6 +236,8 @@ Each AWS service uses token-based pagination. The client methods accept a pagina
 | S3 | ListObjectsV2 | `ContinuationToken` / `NextContinuationToken` | 1000 | `internal/s3/client.go` |
 | CloudWatch | DescribeLogGroups | `NextToken` | 50 | `internal/logs/client.go` |
 | Lambda | ListFunctions | `Marker` / `NextMarker` | 50 | `internal/lambda/client.go` |
+| SSM | GetParametersByPath | `NextToken` | 50 | `internal/ssm/client.go` |
+| SSM | DescribeParameters | `NextToken` | 50 | `internal/ssm/client.go` |
 
 - Client methods must accept an optional pagination token parameter and return the next token alongside results.
 - Never fetch all pages eagerly on init unless the dataset is known to be small. Load one page, then lazy-load more.
@@ -420,6 +428,21 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 
 **Expanded Function Popup**
 - Accessed by pressing `enter` or `space` on a selected function
+- `↑/↓` or `j/k` - Scroll up/down
+- `pgup/pgdn` - Page up/down
+- `esc` - Close popup
+
+### SSM Parameter Store (`internal/ui/ssm/`)
+
+**Parameters View (default)**
+- `↑/↓` or `j/k` - Navigate (lazy loads more parameters near end)
+- `/` - Search/filter by name
+- `enter` or `space` - Navigate into path prefix (folder) or expand parameter details
+- `y` - Copy parameter value or path
+- `esc/backspace/h` - Go back up one level
+
+**Expanded Parameter Popup**
+- Accessed by pressing `enter` or `space` on a leaf parameter
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
 - `esc` - Close popup

@@ -44,6 +44,38 @@ type logGroupCreatedMsg struct {
 	err  error
 }
 
+type logGroupsDeletedMsg struct {
+	names []string
+	err   error
+}
+
+type retentionSetMsg struct {
+	names []string
+	days  int32
+	err   error
+}
+
+// retentionOption represents a selectable retention period.
+type retentionOption struct {
+	label string
+	days  int32 // 0 means never expire
+}
+
+var retentionOptions = []retentionOption{
+	{"1 day", 1},
+	{"3 days", 3},
+	{"5 days", 5},
+	{"7 days", 7},
+	{"14 days", 14},
+	{"30 days", 30},
+	{"60 days", 60},
+	{"90 days", 90},
+	{"120 days", 120},
+	{"180 days", 180},
+	{"365 days", 365},
+	{"Never expire", 0},
+}
+
 type panel int
 
 const (
@@ -71,6 +103,11 @@ type Model struct {
 
 	creating    bool
 	createInput textinput.Model
+
+	deleting         bool // showing delete confirmation
+	deleteTargets    []string
+	settingRetention bool // showing retention picker
+	retentionCursor  int
 
 	tailing      bool
 	tailStart    time.Time
@@ -155,6 +192,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusLine = fmt.Sprintf("Created log group: %s", msg.name)
 		m.loading = true
 		return m, m.loadLogGroupsCmd()
+	case logGroupsDeletedMsg:
+		if msg.err != nil {
+			m.statusLine = msg.err.Error()
+			return m, nil
+		}
+		// Remove deleted groups from local state
+		for _, name := range msg.names {
+			delete(m.selected, name)
+		}
+		m.statusLine = fmt.Sprintf("Deleted %d log group(s)", len(msg.names))
+		m.loading = true
+		return m, m.loadLogGroupsCmd()
+	case retentionSetMsg:
+		if msg.err != nil {
+			m.statusLine = msg.err.Error()
+			return m, nil
+		}
+		label := fmt.Sprintf("%d days", msg.days)
+		if msg.days == 0 {
+			label = "never expire"
+		}
+		m.statusLine = fmt.Sprintf("Set retention to %s on %d group(s)", label, len(msg.names))
+		m.loading = true
+		return m, m.loadLogGroupsCmd()
 
 	case tea.KeyMsg:
 		if m.creating {
@@ -174,6 +235,46 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.createInput, cmd = m.createInput.Update(msg)
 			return m, cmd
+		}
+
+		if m.deleting {
+			switch msg.String() {
+			case "y", "Y":
+				m.deleting = false
+				targets := m.deleteTargets
+				m.deleteTargets = nil
+				m.statusLine = fmt.Sprintf("Deleting %d log group(s)...", len(targets))
+				return m, m.deleteLogGroupsCmd(targets)
+			case "n", "N", "esc":
+				m.deleting = false
+				m.deleteTargets = nil
+				m.statusLine = ""
+			}
+			return m, nil
+		}
+
+		if m.settingRetention {
+			switch msg.String() {
+			case "up", "k":
+				if m.retentionCursor > 0 {
+					m.retentionCursor--
+				}
+			case "down", "j":
+				if m.retentionCursor < len(retentionOptions)-1 {
+					m.retentionCursor++
+				}
+			case "enter":
+				m.settingRetention = false
+				opt := retentionOptions[m.retentionCursor]
+				targets := m.selectedGroups()
+				label := opt.label
+				m.statusLine = fmt.Sprintf("Setting retention to %s on %d group(s)...", label, len(targets))
+				return m, m.setRetentionCmd(targets, opt.days)
+			case "esc", "q":
+				m.settingRetention = false
+				m.statusLine = ""
+			}
+			return m, nil
 		}
 
 		if m.searching {
@@ -324,6 +425,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.createInput.SetValue("")
 				return m, m.createInput.Focus()
 			}
+		case "d", "D":
+			if !m.tailing {
+				targets := m.selectedGroups()
+				if len(targets) > 0 {
+					m.deleting = true
+					m.deleteTargets = targets
+				}
+			}
+		case "R":
+			if !m.tailing {
+				targets := m.selectedGroups()
+				if len(targets) > 0 {
+					m.settingRetention = true
+					m.retentionCursor = 0
+				}
+			}
 		case "t":
 			if !m.tailing && len(m.selectedGroups()) > 0 {
 				m.tailing = true
@@ -458,6 +575,18 @@ func (m Model) View() string {
 			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
 	}
 
+	if m.deleting {
+		popup := m.renderDeleteConfirm()
+		view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
+			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
+	}
+
+	if m.settingRetention {
+		popup := m.renderRetentionPicker()
+		view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
+			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
+	}
+
 	if m.expandedEvent >= 0 && m.expandedEvent < len(m.events) {
 		popup := m.renderExpandedEvent(m.events[m.expandedEvent])
 		view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
@@ -524,6 +653,30 @@ func (m Model) createLogGroupCmd(name string) tea.Cmd {
 	}
 }
 
+func (m Model) deleteLogGroupsCmd(names []string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		for _, name := range names {
+			if err := m.client.DeleteLogGroup(ctx, name); err != nil {
+				return logGroupsDeletedMsg{err: err}
+			}
+		}
+		return logGroupsDeletedMsg{names: names}
+	}
+}
+
+func (m Model) setRetentionCmd(names []string, days int32) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		for _, name := range names {
+			if err := m.client.SetRetentionPolicy(ctx, name, days); err != nil {
+				return retentionSetMsg{err: err}
+			}
+		}
+		return retentionSetMsg{names: names, days: days}
+	}
+}
+
 func (m Model) filteredGroups() []logs.LogGroup {
 	if !m.searching && m.search.Value() == "" {
 		return m.logGroups
@@ -586,15 +739,21 @@ func (m Model) Tailing() bool {
 	return m.tailing
 }
 
-// Searching reports whether the model has an active text input.
+// Searching reports whether the model has an active text input or overlay.
 func (m Model) Searching() bool {
-	return m.searching || m.creating
+	return m.searching || m.creating || m.deleting || m.settingRetention
 }
 
 // StatusHelp returns context-aware help text for the status bar.
 func (m Model) StatusHelp() string {
 	if m.expandedEvent >= 0 {
 		return "↑↓ scroll, pgup/pgdn page, esc close"
+	}
+	if m.deleting {
+		return "y confirm delete, n/esc cancel"
+	}
+	if m.settingRetention {
+		return "↑↓ move, enter select, esc cancel"
 	}
 	if m.creating {
 		return "enter create, esc cancel"
@@ -619,7 +778,7 @@ func (m Model) StatusHelp() string {
 		}
 		return fmt.Sprintf("↑↓ move, enter expand, v [%s], tab/← switch, f fullscreen, x/q stop", viewMode)
 	}
-	return "↑↓ move, / search, space select, a all, c create, t tail"
+	return "↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail"
 }
 
 func (m *Model) setViewportSize(bodyHeight int) {

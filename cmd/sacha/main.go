@@ -14,6 +14,7 @@ import (
 	lambdaui "github.com/sachamama/sacha/internal/ui/lambda"
 	logsui "github.com/sachamama/sacha/internal/ui/logs"
 	s3ui "github.com/sachamama/sacha/internal/ui/s3"
+	sqsui "github.com/sachamama/sacha/internal/ui/sqs"
 	ssmui "github.com/sachamama/sacha/internal/ui/ssm"
 	"github.com/sachamama/sacha/internal/version"
 
@@ -98,6 +99,7 @@ func run(ctx context.Context, flags cliFlags) error {
 		"s3":              s3ui.S3Service{},
 		"dynamodb":        dynamodbui.DynamoDBService{},
 		"lambda":          lambdaui.LambdaService{},
+		"sqs":             sqsui.SQSService{},
 		"ssm":             ssmui.SSMService{},
 	}
 

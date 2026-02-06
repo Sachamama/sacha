@@ -2,7 +2,7 @@
 
 <a href="https://buymeacoffee.com/sachamama"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" height="36"></a>
 
-sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs, S3, DynamoDB, Lambda, and SSM Parameter Store, with an extensible architecture for more AWS services.
+sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store, and SQS, with an extensible architecture for more AWS services.
 
 ## Highlights
 - Two-pane TUI for fast AWS resource exploration.
@@ -11,6 +11,7 @@ sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It
 - **DynamoDB**: Browse tables, scan items with lazy loading, view table details and item attributes.
 - **Lambda**: Browse functions, view configuration details, environment variables, and layers.
 - **SSM Parameter Store**: Browse parameters by path hierarchy, view values with decryption, navigate folders.
+- **SQS**: Browse queues, view message counts and attributes, peek messages without consuming them.
 - Remembers your last region/service and plays nicely with AWS profiles.
 - Minimal dependencies; install and run with a single command.
 
@@ -99,7 +100,7 @@ sacha --profile my-aws-profile --region us-east-1
 Global flags:
 - `--profile` – AWS profile to use
 - `--region` – AWS region
-- `--service` – AWS service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`, `ssm`)
+- `--service` – AWS service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`, `ssm`, `sqs`)
 - `--verbose` – enable debug logging
 - `--version` – show version information
 
@@ -162,6 +163,15 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 - Search/filter parameters with `/`.
 - Lazy loading with pagination for large parameter sets.
 - Supports String, StringList, and SecureString parameter types.
+
+### SQS
+- Browse SQS queues in a two-pane interface with queue attributes in the right panel.
+- View message counts (approximate visible, in-flight, delayed), queue type (FIFO/Standard), visibility timeout, redrive policy.
+- Peek messages with `enter` — uses `ReceiveMessage` with visibility timeout 0 so messages stay in the queue.
+- Navigate peeked messages, view message body (JSON auto-formatted), expand in scrollable popup.
+- Copy queue URL with `y`; copy message body with `y` in message view.
+- Search/filter queues with `/`.
+- Lazy loading with pagination for large queue lists.
 
 ## Keybindings
 
@@ -242,6 +252,21 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 | `↑/↓` or `j/k` | Scroll in expanded view |
 | `pgup/pgdn` | Page scroll in expanded view |
 | `esc/backspace/h` | Go back up one level |
+| `esc` | Close expanded view |
+
+### SQS
+| Key | Action |
+|-----|--------|
+| `↑/↓` or `j/k` | Navigate |
+| `/` | Search/filter |
+| `enter` | Peek messages |
+| `space` | Expand queue details |
+| `y` | Copy queue URL |
+| `enter/space` | Expand message (in messages view) |
+| `y` | Copy message body (in messages view) |
+| `↑/↓` or `j/k` | Scroll in expanded view |
+| `pgup/pgdn` | Page scroll in expanded view |
+| `esc/backspace/h` | Go back to queues (from messages) |
 | `esc` | Close expanded view |
 
 ## Development

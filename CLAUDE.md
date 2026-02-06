@@ -97,6 +97,7 @@ Access version info via CLI: `sacha --version`
    - `internal/dynamodb/` - DynamoDB
    - `internal/lambda/` - Lambda
    - `internal/ssm/` - SSM Parameter Store
+   - `internal/sqs/` - SQS
 5. **UI** (`internal/ui/`) - Bubble Tea TUI framework
    - `app/` - Main application shell (region/service switching)
    - `logs/` - CloudWatch Logs specific UI
@@ -104,6 +105,7 @@ Access version info via CLI: `sacha --version`
    - `dynamodb/` - DynamoDB browser UI
    - `lambda/` - Lambda browser UI
    - `ssm/` - SSM Parameter Store browser UI
+   - `sqs/` - SQS Queue browser UI
 
 ### Plugin Architecture
 
@@ -238,6 +240,7 @@ Each AWS service uses token-based pagination. The client methods accept a pagina
 | Lambda | ListFunctions | `Marker` / `NextMarker` | 50 | `internal/lambda/client.go` |
 | SSM | GetParametersByPath | `NextToken` | 50 | `internal/ssm/client.go` |
 | SSM | DescribeParameters | `NextToken` | 50 | `internal/ssm/client.go` |
+| SQS | ListQueues | `NextToken` | 50 | `internal/sqs/client.go` |
 
 - Client methods must accept an optional pagination token parameter and return the next token alongside results.
 - Never fetch all pages eagerly on init unless the dataset is known to be small. Load one page, then lazy-load more.
@@ -443,6 +446,26 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 
 **Expanded Parameter Popup**
 - Accessed by pressing `enter` or `space` on a leaf parameter
+- `↑/↓` or `j/k` - Scroll up/down
+- `pgup/pgdn` - Page up/down
+- `esc` - Close popup
+
+### SQS (`internal/ui/sqs/`)
+
+**Queues View (default)**
+- `↑/↓` or `j/k` - Navigate (lazy loads more queues near end)
+- `/` - Search/filter by name
+- `enter` - Peek messages (receives with visibility timeout 0)
+- `space` - Expand queue details in popup
+- `y` - Copy queue URL
+
+**Messages View (after peeking)**
+- `↑/↓` or `j/k` - Navigate messages
+- `enter` or `space` - Expand message in popup (pretty-printed JSON body)
+- `y` - Copy message body
+- `esc/backspace/h` - Go back to queues
+
+**Expanded Popup (queue or message)**
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
 - `esc` - Close popup

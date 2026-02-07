@@ -1,29 +1,51 @@
+<div align="center">
+
 # sacha
+
+**Keyboard-first AWS TUI for your terminal**
+
+[![CI](https://github.com/Sachamama/sacha/actions/workflows/ci.yml/badge.svg)](https://github.com/Sachamama/sacha/actions/workflows/ci.yml)
+[![Release](https://github.com/Sachamama/sacha/actions/workflows/release.yml/badge.svg)](https://github.com/Sachamama/sacha/actions/workflows/release.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sachamama/sacha)](https://goreportcard.com/report/github.com/sachamama/sacha)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Sachamama/sacha/blob/main/LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/Sachamama/sacha)](https://go.dev/)
+[![Latest Release](https://img.shields.io/github/v/release/Sachamama/sacha?sort=semver)](https://github.com/Sachamama/sacha/releases/latest)
+
+Browse, search, and manage AWS resources directly from your terminal.
+No more switching between browser tabs and consoles.
+
+[Install](#install) &bull; [Quick Start](#quick-start) &bull; [Features](#features) &bull; [Keybindings](#keybindings) &bull; [Docs](https://sachamama.github.io/sacha/) &bull; [Contributing](CONTRIBUTING.md)
 
 <a href="https://buymeacoffee.com/sachamama"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" height="36"></a>
 
-sacha is a keyboard-first AWS TUI inspired by classic two-pane file managers. It keeps you in the terminal while you browse, search, and manage AWS resources without bouncing between consoles. Currently supports CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store, and SQS, with an extensible architecture for more AWS services.
+</div>
 
-## Highlights
-- Two-pane TUI for fast AWS resource exploration.
-- **CloudWatch Logs**: Search, multi-select, and tail multiple log groups. JSON logs auto-format as tables.
-- **S3**: Browse buckets, download files and folders recursively, preview text content.
-- **DynamoDB**: Browse tables, scan items with lazy loading, view table details and item attributes.
-- **Lambda**: Browse functions, view configuration details, environment variables, and layers.
-- **SSM Parameter Store**: Browse parameters by path hierarchy, view values with decryption, navigate folders.
-- **SQS**: Browse queues, view message counts and attributes, peek messages without consuming them.
-- Remembers your last region/service and plays nicely with AWS profiles.
-- Minimal dependencies; install and run with a single command.
+---
 
-## What’s in a name?
-- `sachamama` comes from Quechua and means “mother of the forest,” which is also the username of the author.
-- `sacha` shortens the idea to “forest,” reflecting how the tool helps you see the bigger AWS landscape without getting lost in individual trees.
+## Why sacha?
+
+Sacha is a two-pane TUI inspired by classic file managers. It keeps you in the terminal while you explore AWS resources across six services, with vim-style navigation, lazy-loaded pagination, and automatic JSON formatting.
+
+> **sachamama** comes from Quechua and means "mother of the forest." **sacha** shortens the idea to "forest," reflecting how the tool helps you see the bigger AWS landscape without getting lost in individual trees.
+
+### Supported Services
+
+| Service | What you can do |
+|---------|----------------|
+| **CloudWatch Logs** | Search, multi-select, and tail multiple log groups. JSON logs auto-format as tables. Create, delete, and set retention policies. |
+| **S3** | Browse buckets and objects. Download files and folders recursively. Preview text content. Copy S3 URIs. |
+| **DynamoDB** | Browse tables and scan items. View table metadata, key schema, and GSIs. Inspect full item attributes. |
+| **Lambda** | Browse functions. View configuration, environment variables, layers, and runtime details. |
+| **SSM Parameter Store** | Navigate parameters by path hierarchy. View values with decryption. Supports String, StringList, SecureString. |
+| **SQS** | Browse queues with message stats. Peek messages non-destructively. View FIFO/Standard attributes and redrive policies. |
+
+---
 
 ## Install
 
-Prerequisites: AWS credentials that can read CloudWatch Logs.
+**Prerequisites:** AWS credentials configured (via `~/.aws/credentials`, environment variables, or IAM role).
 
-### Homebrew (macOS/Linux)
+### Homebrew (macOS / Linux)
 
 ```bash
 brew install sachamama/tap/sacha
@@ -39,7 +61,7 @@ Requires Go 1.22+.
 
 ### Pre-built Binaries
 
-Download from [releases](https://github.com/Sachamama/sacha/releases):
+Download from [GitHub Releases](https://github.com/Sachamama/sacha/releases):
 
 ```bash
 # macOS (Apple Silicon)
@@ -69,113 +91,118 @@ cd sacha
 make build  # binary at bin/sacha
 ```
 
-## Update
+### Update
 
-Check your current version with `sacha --version`.
+```bash
+# Homebrew
+brew upgrade sacha
 
-To update sacha to the latest version:
-- **Homebrew**: `brew upgrade sacha`
-- **Go install**: `go install github.com/sachamama/sacha/cmd/sacha@latest`
-- **Pre-built binary**: Download the new version from [releases](https://github.com/Sachamama/sacha/releases)
-- **From source**: `git pull && make build`
+# Go install
+go install github.com/sachamama/sacha/cmd/sacha@latest
 
-## Versioning
-
-Sacha follows [semantic versioning](https://semver.org/). Releases are tagged as `vMAJOR.MINOR.PATCH` (e.g., `v1.2.3`).
-
-New releases are automatically built and published when version tags are pushed:
-- [GitHub Releases](https://github.com/Sachamama/sacha/releases) with pre-built binaries for Linux, macOS, and Windows (amd64 and arm64)
-- [Homebrew tap](https://github.com/Sachamama/homebrew-tap) for easy installation via `brew`
-- Checksums for verification
-- Automated changelog with features, bug fixes, and performance improvements
-
-## Quickstart
-
-```
-make run
-# or directly after install
-sacha --profile my-aws-profile --region us-east-1
+# Pre-built binary — download from https://github.com/Sachamama/sacha/releases
+# From source
+git pull && make build
 ```
 
-Global flags:
-- `--profile` – AWS profile to use
-- `--region` – AWS region
-- `--service` – AWS service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`, `ssm`, `sqs`)
-- `--verbose` – enable debug logging
-- `--version` – show version information
+Check your current version: `sacha --version`
 
-Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.json`) and stores defaults plus your last used region/service. Precedence: CLI flags > env (`AWS_PROFILE`, `AWS_REGION`, `AWS_DEFAULT_REGION`) > config file > AWS SDK defaults.
+---
+
+## Quick Start
+
+```bash
+sacha
+# or with explicit options
+sacha --profile production --region us-east-1 --service cloudwatch-logs
+```
+
+### Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--profile` | AWS profile to use |
+| `--region` | AWS region |
+| `--service` | Jump directly to a service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`, `ssm`, `sqs`) |
+| `--verbose` | Enable debug logging |
+| `--version` | Show version information |
+
+### Configuration
+
+Config file: `~/.config/sacha/config.json`
+
+Resolution precedence:
+1. CLI flags (`--profile`, `--region`, `--service`)
+2. Environment variables (`AWS_PROFILE`, `AWS_REGION`, `AWS_DEFAULT_REGION`)
+3. Config file
+4. AWS SDK defaults
+
+Sacha remembers your last-used region and service automatically.
+
+---
 
 ## Features
 
 ### CloudWatch Logs
-- Split-pane TUI: left pane lists log groups; right pane shows group details or tails logs.
-- Log group list with search (`/`), cursor navigation, multi-select.
-- Right pane displays log group details: name, retention policy, stored bytes, and creation date.
-- Create new log groups with `c`.
-- Delete selected log groups with `d` (confirmation prompt).
-- Set retention policy on selected groups with `R` (picker shows: 1d, 3d, 5d, 7d, 14d, 30d, 60d, 90d, 1y, never).
-- Tail multiple log groups simultaneously with `t`.
-- Switch between left (groups) and right (tail) panels with `tab`, `left/h`, or `right/l`.
-- Focused panel highlighted with colored border; up/down navigation works within focused panel.
-- Dynamic log refresh: logs automatically refresh when log group selection changes while tailing (press `space` or `a` on groups panel).
-- JSON log detection with automatic table view displaying TIME, GROUP, and JSON fields.
-- Table uses full available width with proper padding; last column expands to fill space.
-- Toggle between table and plain view with `v`.
-- Navigate log events with arrows and expand to see full message (pretty-printed JSON) with scrollable view.
-- Stop tailing with `x` to reset the log panel and return to group selection.
-- Fullscreen tail mode with `f`; use left/right arrows or `h/l` to scroll horizontally for wide log lines.
+
+- **Split-pane TUI** &mdash; left pane lists log groups; right pane shows details or live tail output.
+- **Log group management** &mdash; create (`c`), delete (`d`) with confirmation, set retention policy (`R`) with standard presets (1d to 1y or never).
+- **Multi-group tailing** &mdash; select multiple groups with `space`/`a` and tail them simultaneously with `t`. Dynamic refresh when selection changes.
+- **Smart formatting** &mdash; JSON logs auto-detected and displayed as tables with TIME, GROUP, and extracted fields. Toggle table/plain with `v`.
+- **Panel focus** &mdash; `tab`/`h`/`l` to switch between groups and tail panels. Focused panel highlighted with colored border.
+- **Fullscreen mode** &mdash; press `f` while tailing for a distraction-free view with horizontal scrolling.
+- **Expand events** &mdash; `enter`/`space` to open a scrollable popup with pretty-printed JSON.
 
 ### S3
-- Browse buckets and objects in a two-pane interface.
-- Navigate into folders, go back with `esc`/`backspace`.
-- Multi-select files and folders for batch operations.
-- Download files and folders recursively with `d`.
-- Lazy loading with pagination (loads more items as you scroll).
-- Select all items including paginated results with `A`.
-- Preview text files with `p`.
-- Copy S3 URI to clipboard with `y`.
-- Downloads saved to `./sacha-downloads/` preserving folder structure.
+
+- **Bucket and object browser** &mdash; navigate into buckets and folders with `enter`, go back with `esc`/`backspace`.
+- **Batch operations** &mdash; multi-select files and folders with `space`, select all with `a`, load all pages and select with `A`.
+- **Recursive downloads** &mdash; press `d` to download selected files and folders to `./sacha-downloads/`, preserving folder structure.
+- **Text preview** &mdash; press `p` to preview file contents inline.
+- **Clipboard** &mdash; `y` to copy S3 URI.
+- **Lazy pagination** &mdash; loads more objects as you scroll near the bottom.
 
 ### DynamoDB
-- Browse tables in a two-pane interface with table details in the right panel.
-- View table metadata: status, item count, size, billing mode, key schema, and GSIs.
-- Scan table items with paginated lazy loading.
-- Search/filter tables and items with `/`.
-- Expand any item to view full attribute details in a scrollable popup.
-- Copy table ARN to clipboard with `y`.
-- Supports all DynamoDB attribute types: strings, numbers, booleans, binary, sets, lists, and maps.
+
+- **Two-pane table browser** &mdash; table list on the left, metadata on the right (status, item count, size, billing, key schema, GSIs).
+- **Item scanning** &mdash; press `enter` to scan items with lazy-loaded pagination.
+- **Search & filter** &mdash; `/` to filter tables or items by value.
+- **Expand items** &mdash; `enter`/`space` to view full attribute details in a scrollable popup.
+- **All attribute types** &mdash; strings, numbers, booleans, binary, sets, lists, and maps.
+- **Clipboard** &mdash; `y` to copy table ARN.
 
 ### Lambda
-- Browse Lambda functions in a two-pane interface with function details in the right panel.
-- View function configuration: runtime, handler, memory, timeout, code size, state, and architecture.
-- Search/filter functions by name or runtime with `/`.
-- Expand any function to view full details including environment variables and layers in a scrollable popup.
-- Copy function ARN to clipboard with `y`.
-- Lazy loading with pagination for large function lists.
+
+- **Function browser** &mdash; two-pane view with runtime, handler, memory, timeout, code size, state, and architecture in the details panel.
+- **Deep inspection** &mdash; `enter`/`space` to expand and view environment variables, layers, and full configuration.
+- **Filter by name or runtime** &mdash; `/` to search.
+- **Clipboard** &mdash; `y` to copy function ARN.
+- **Lazy pagination** &mdash; loads more functions as you scroll.
 
 ### SSM Parameter Store
-- Browse parameters by path hierarchy in a two-pane interface.
-- Navigate into path prefixes like folders with `enter`, go back with `esc`/`backspace`.
-- View parameter details: value (with decryption), type, version, last modified, ARN.
-- Expand any parameter to view full details in a scrollable popup.
-- Copy parameter value or path to clipboard with `y`.
-- Search/filter parameters with `/`.
-- Lazy loading with pagination for large parameter sets.
-- Supports String, StringList, and SecureString parameter types.
+
+- **Hierarchical browsing** &mdash; navigate path prefixes like folders with `enter`, go back with `esc`/`backspace`/`h`.
+- **Parameter details** &mdash; value (with automatic decryption), type, version, last modified, ARN.
+- **All types supported** &mdash; String, StringList, SecureString.
+- **Expand popup** &mdash; `enter`/`space` on a parameter for full details.
+- **Clipboard** &mdash; `y` to copy parameter value or path.
+- **Scroll memory** &mdash; cursor position restored when navigating back.
 
 ### SQS
-- Browse SQS queues in a two-pane interface with queue attributes in the right panel.
-- View message counts (approximate visible, in-flight, delayed), queue type (FIFO/Standard), visibility timeout, redrive policy.
-- Peek messages with `enter` — uses `ReceiveMessage` with visibility timeout 0 so messages stay in the queue.
-- Navigate peeked messages, view message body (JSON auto-formatted), expand in scrollable popup.
-- Copy queue URL with `y`; copy message body with `y` in message view.
-- Search/filter queues with `/`.
-- Lazy loading with pagination for large queue lists.
+
+- **Queue browser** &mdash; message counts (visible, in-flight, delayed), queue type, visibility timeout, redrive policy.
+- **Non-destructive peek** &mdash; press `enter` to receive messages with visibility timeout 0 &mdash; messages stay in the queue.
+- **Message inspection** &mdash; navigate messages, view auto-formatted JSON bodies, expand in a scrollable popup.
+- **Queue details popup** &mdash; press `space` to view full queue attributes.
+- **Clipboard** &mdash; `y` to copy queue URL or message body.
+- **Search/filter** &mdash; `/` to filter queues by name.
+
+---
 
 ## Keybindings
 
 ### Global
+
 | Key | Action |
 |-----|--------|
 | `r` | Change region |
@@ -183,99 +210,135 @@ Configuration lives under the OS config directory (e.g. `~/.config/sacha/config.
 | `Ctrl+C` | Quit |
 
 ### CloudWatch Logs
-| Key | Action |
-|-----|--------|
-| `↑/↓` or `j/k` | Navigate |
-| `/` | Search/filter |
-| `space` | Toggle selection |
-| `a` | Select all |
-| `c` | Create log group |
-| `d` | Delete selected log groups |
-| `R` | Set retention policy |
-| `t` | Start tailing |
-| `tab`, `left/h`, `right/l` | Switch panel focus (while tailing) |
-| `enter/space` | Expand log event (while tailing) |
-| `↑/↓` or `j/k` | Scroll in expanded view |
-| `pgup/pgdn` | Page scroll in expanded view |
-| `esc` | Close expanded view |
-| `v` | Toggle table/plain view (while tailing) |
-| `x` | Stop tailing |
-| `f` | Toggle fullscreen (while tailing) |
-| `←/→` or `h/l` | Scroll horizontally (fullscreen only) |
-| `q/esc` | Stop tailing |
+
+| Key | Context | Action |
+|-----|---------|--------|
+| `j/k` or `↑/↓` | List | Navigate log groups |
+| `/` | List | Search / filter |
+| `space` | List | Toggle selection |
+| `a` | List | Select all |
+| `c` | List | Create log group |
+| `d` | List | Delete selected log groups |
+| `R` | List | Set retention policy |
+| `t` | List | Start tailing selected groups |
+| `tab`, `h/l` | Tailing | Switch panel focus |
+| `enter` / `space` | Tailing | Expand log event |
+| `v` | Tailing | Toggle table / plain view |
+| `f` | Tailing | Toggle fullscreen |
+| `h/l` or `←/→` | Fullscreen | Scroll horizontally |
+| `x` or `q/esc` | Tailing | Stop tailing |
+| `j/k` or `↑/↓` | Popup | Scroll content |
+| `pgup/pgdn` | Popup | Page scroll |
+| `esc` | Popup | Close |
 
 ### S3
-| Key | Action |
-|-----|--------|
-| `↑/↓` or `j/k` | Navigate |
-| `/` | Search/filter |
-| `enter` | Open bucket/folder |
-| `space` | Toggle selection (files and folders) |
-| `a` | Toggle all (current page) |
-| `A` | Load all pages and select all |
-| `d` | Download (folders downloaded recursively) |
-| `p` | Preview text file |
-| `y` | Copy S3 URI |
-| `esc/backspace` | Go back |
+
+| Key | Context | Action |
+|-----|---------|--------|
+| `j/k` or `↑/↓` | Browse | Navigate |
+| `/` | Browse | Search / filter |
+| `enter` | Browse | Open bucket / folder |
+| `space` | Browse | Toggle selection |
+| `a` | Browse | Toggle all (current page) |
+| `A` | Browse | Load all pages + select all |
+| `d` | Browse | Download selected (recursive) |
+| `p` | Browse | Preview text file |
+| `y` | Browse | Copy S3 URI |
+| `esc/backspace` | Browse | Go back |
 
 ### DynamoDB
-| Key | Action |
-|-----|--------|
-| `↑/↓` or `j/k` | Navigate |
-| `/` | Search/filter |
-| `enter` | Open table (scan items) |
-| `enter/space` | Expand item (in items view) |
-| `y` | Copy table ARN |
-| `↑/↓` or `j/k` | Scroll in expanded view |
-| `pgup/pgdn` | Page scroll in expanded view |
-| `esc` | Close expanded view |
-| `esc/backspace/h` | Go back to tables |
+
+| Key | Context | Action |
+|-----|---------|--------|
+| `j/k` or `↑/↓` | Tables | Navigate |
+| `/` | Tables | Search / filter |
+| `enter` | Tables | Open table (scan items) |
+| `y` | Tables | Copy table ARN |
+| `enter/space` | Items | Expand item details |
+| `esc/backspace/h` | Items | Go back to tables |
+| `j/k` or `↑/↓` | Popup | Scroll content |
+| `pgup/pgdn` | Popup | Page scroll |
+| `esc` | Popup | Close |
 
 ### Lambda
-| Key | Action |
-|-----|--------|
-| `↑/↓` or `j/k` | Navigate |
-| `/` | Search/filter |
-| `enter/space` | Expand function details |
-| `y` | Copy function ARN |
-| `↑/↓` or `j/k` | Scroll in expanded view |
-| `pgup/pgdn` | Page scroll in expanded view |
-| `esc` | Close expanded view |
+
+| Key | Context | Action |
+|-----|---------|--------|
+| `j/k` or `↑/↓` | List | Navigate |
+| `/` | List | Search / filter by name or runtime |
+| `enter/space` | List | Expand function details |
+| `y` | List | Copy function ARN |
+| `j/k` or `↑/↓` | Popup | Scroll content |
+| `pgup/pgdn` | Popup | Page scroll |
+| `esc` | Popup | Close |
 
 ### SSM Parameter Store
-| Key | Action |
-|-----|--------|
-| `↑/↓` or `j/k` | Navigate |
-| `/` | Search/filter |
-| `enter/space` | Open path prefix or expand parameter |
-| `y` | Copy parameter value or path |
-| `↑/↓` or `j/k` | Scroll in expanded view |
-| `pgup/pgdn` | Page scroll in expanded view |
-| `esc/backspace/h` | Go back up one level |
-| `esc` | Close expanded view |
+
+| Key | Context | Action |
+|-----|---------|--------|
+| `j/k` or `↑/↓` | Browse | Navigate |
+| `/` | Browse | Search / filter |
+| `enter/space` | Browse | Enter path prefix or expand parameter |
+| `y` | Browse | Copy parameter value or path |
+| `esc/backspace/h` | Browse | Go back one level |
+| `j/k` or `↑/↓` | Popup | Scroll content |
+| `pgup/pgdn` | Popup | Page scroll |
+| `esc` | Popup | Close |
 
 ### SQS
-| Key | Action |
-|-----|--------|
-| `↑/↓` or `j/k` | Navigate |
-| `/` | Search/filter |
-| `enter` | Peek messages |
-| `space` | Expand queue details |
-| `y` | Copy queue URL |
-| `enter/space` | Expand message (in messages view) |
-| `y` | Copy message body (in messages view) |
-| `↑/↓` or `j/k` | Scroll in expanded view |
-| `pgup/pgdn` | Page scroll in expanded view |
-| `esc/backspace/h` | Go back to queues (from messages) |
-| `esc` | Close expanded view |
 
-## Development
+| Key | Context | Action |
+|-----|---------|--------|
+| `j/k` or `↑/↓` | Queues | Navigate |
+| `/` | Queues | Search / filter |
+| `enter` | Queues | Peek messages |
+| `space` | Queues | Expand queue details |
+| `y` | Queues | Copy queue URL |
+| `enter/space` | Messages | Expand message |
+| `y` | Messages | Copy message body |
+| `esc/backspace/h` | Messages | Go back to queues |
+| `j/k` or `↑/↓` | Popup | Scroll content |
+| `pgup/pgdn` | Popup | Page scroll |
+| `esc` | Popup | Close |
+
+---
+
+## Architecture
+
+Sacha uses a layered architecture built on [Bubble Tea](https://github.com/charmbracelet/bubbletea):
 
 ```
-make test
-make run
+cmd/sacha/main.go          CLI entry point (Cobra)
+internal/config/            Configuration (CLI > env > file > defaults)
+internal/aws/               AWS SDK v2 abstraction + Service interface
+internal/<service>/          Domain clients and types per service
+internal/ui/<service>/       Bubble Tea models and views per service
+internal/ui/app/             Main app shell (region/service switching)
 ```
 
-### Adding services
+Each service implements the `awsx.Service` interface and is registered in `main.go`. See the [Contributing Guide](CONTRIBUTING.md) for how to add a new service.
 
-Implement the `awsx.Service` interface, register the service in `cmd/sacha/main.go`, and provide a TUI model under `internal/ui/<service>`. Services receive AWS config scoped to the active region/profile.
+---
+
+## Versioning
+
+Sacha follows [semantic versioning](https://semver.org/). Releases are tagged `vMAJOR.MINOR.PATCH` and automatically built via [GoReleaser](https://goreleaser.com/):
+
+- Pre-built binaries for Linux, macOS, Windows (amd64 + arm64)
+- Homebrew tap updates
+- SHA256 checksums
+- Auto-generated changelogs
+
+Browse all releases: [github.com/Sachamama/sacha/releases](https://github.com/Sachamama/sacha/releases)
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) for details on the development workflow, coding standards, commit conventions, and how to add new AWS services.
+
+---
+
+## License
+
+[MIT](LICENSE) &copy; [Sachamama](https://github.com/Sachamama)

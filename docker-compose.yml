@@ -4,7 +4,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,logs,dynamodb,lambda
+      - SERVICES=s3,logs,dynamodb,lambda,sqs,ssm
       - DEBUG=0
       - AWS_DEFAULT_REGION=us-east-1
     volumes:

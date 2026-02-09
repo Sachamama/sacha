@@ -7,6 +7,8 @@
 #   DynamoDB ListTables  — page 100  → 120 tables
 #   DynamoDB Scan        — page 25   → 80 items in Users table
 #   Lambda ListFunctions — page 50   → 65 functions
+#   SQS ListQueues       — page 50   → 60 queues
+#   SSM DescribeParams   — page 50   → 65 parameters
 
 set -euo pipefail
 
@@ -260,6 +262,94 @@ done
 echo "  65 functions total"
 
 rm -rf "$TMPDIR"
+
+echo "=== Seeding SQS ==="
+
+# 5 primary queues with messages
+for queue in order-processing notification-dispatch email-outbox event-ingestion audit-trail; do
+  aws sqs create-queue --queue-name "$queue" > /dev/null 2>&1 || true
+done
+
+# 1 FIFO queue
+aws sqs create-queue --queue-name "payment-processing.fifo" \
+  --attributes '{"FifoQueue":"true","ContentBasedDeduplication":"true"}' \
+  > /dev/null 2>&1 || true
+
+# 1 queue with dead-letter configuration
+DLQ_ARN=$(aws sqs get-queue-attributes \
+  --queue-url "$ENDPOINT/000000000000/audit-trail" \
+  --attribute-names QueueArn --query 'Attributes.QueueArn' --output text 2>/dev/null || echo "")
+if [ -n "$DLQ_ARN" ] && [ "$DLQ_ARN" != "None" ]; then
+  aws sqs create-queue --queue-name "retry-queue" \
+    --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"$DLQ_ARN\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}" \
+    > /dev/null 2>&1 || true
+else
+  aws sqs create-queue --queue-name "retry-queue" > /dev/null 2>&1 || true
+fi
+echo "  7 primary queues created"
+
+# Send messages to primary queues so peek works
+QUEUE_BASE_URL="$ENDPOINT/000000000000"
+for i in $(seq 1 10); do
+  aws sqs send-message --queue-url "$QUEUE_BASE_URL/order-processing" \
+    --message-body "{\"orderId\":\"ord-$(printf '%03d' "$i")\",\"amount\":$((RANDOM % 10000)),\"status\":\"pending\",\"customer\":\"cust-$(printf '%02d' $((i % 20 + 1)))\"}" \
+    > /dev/null 2>&1
+  aws sqs send-message --queue-url "$QUEUE_BASE_URL/notification-dispatch" \
+    --message-body "{\"type\":\"email\",\"to\":\"user$i@example.com\",\"subject\":\"Order update\",\"template\":\"order-confirmation\"}" \
+    > /dev/null 2>&1
+  aws sqs send-message --queue-url "$QUEUE_BASE_URL/event-ingestion" \
+    --message-body "{\"eventType\":\"page_view\",\"userId\":\"user-$(printf '%03d' "$i")\",\"page\":\"/products/$i\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+    > /dev/null 2>&1
+done
+echo "  30 messages sent to primary queues"
+
+# 53 additional queues for list pagination (page size 50)
+for i in $(seq 1 53); do
+  aws sqs create-queue --queue-name "queue-$(printf '%02d' "$i")" > /dev/null 2>&1 || true
+  progress "$i" 53 "pagination queues:"
+done
+echo "  60 queues total"
+
+echo "=== Seeding SSM ==="
+
+# Application config parameters under /app/
+aws ssm put-parameter --name "/app/name" --value "sacha" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/app/version" --value "1.0.0" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/app/environment" --value "development" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/app/log-level" --value "info" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/app/feature-flags" --value "dark-mode,notifications,beta-ui" --type StringList > /dev/null 2>&1 || true
+
+# Database config under /database/
+aws ssm put-parameter --name "/database/host" --value "db.example.internal" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/database/port" --value "5432" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/database/name" --value "sacha_prod" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/database/username" --value "sacha_app" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/database/password" --value "s3cret-db-pass!" --type SecureString > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/database/max-connections" --value "100" --type String > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/database/ssl-mode" --value "require" --type String > /dev/null 2>&1 || true
+
+# API keys under /secrets/
+aws ssm put-parameter --name "/secrets/api-key" --value "sk-test-abc123def456" --type SecureString > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/secrets/jwt-secret" --value "super-secret-jwt-signing-key" --type SecureString > /dev/null 2>&1 || true
+aws ssm put-parameter --name "/secrets/encryption-key" --value "aes256-key-placeholder" --type SecureString > /dev/null 2>&1 || true
+
+# Service endpoints under /services/
+for svc in users orders payments notifications analytics search; do
+  aws ssm put-parameter --name "/services/$svc/url" --value "https://$svc.internal.example.com" --type String > /dev/null 2>&1 || true
+  aws ssm put-parameter --name "/services/$svc/timeout" --value "$((RANDOM % 30 + 5))" --type String > /dev/null 2>&1 || true
+  aws ssm put-parameter --name "/services/$svc/retries" --value "$((RANDOM % 5 + 1))" --type String > /dev/null 2>&1 || true
+done
+echo "  38 primary parameters created"
+
+# 27 additional parameters under /config/ for pagination (page size 50)
+for i in $(seq 1 27); do
+  aws ssm put-parameter \
+    --name "/config/param-$(printf '%02d' "$i")" \
+    --value "value-$i" \
+    --type String > /dev/null 2>&1 || true
+  progress "$i" 27 "pagination params:"
+done
+echo "  65 parameters total"
 
 echo ""
 echo "=== Seeding complete ==="

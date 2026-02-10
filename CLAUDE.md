@@ -98,6 +98,7 @@ Access version info via CLI: `sacha --version`
    - `internal/lambda/` - Lambda
    - `internal/ssm/` - SSM Parameter Store
    - `internal/sqs/` - SQS
+   - `internal/ec2/` - EC2
 5. **UI** (`internal/ui/`) - Bubble Tea TUI framework
    - `app/` - Main application shell (region/service switching)
    - `logs/` - CloudWatch Logs specific UI
@@ -106,6 +107,7 @@ Access version info via CLI: `sacha --version`
    - `lambda/` - Lambda browser UI
    - `ssm/` - SSM Parameter Store browser UI
    - `sqs/` - SQS Queue browser UI
+   - `ec2/` - EC2 Instance browser UI
 
 ### Plugin Architecture
 
@@ -241,6 +243,7 @@ Each AWS service uses token-based pagination. The client methods accept a pagina
 | SSM | GetParametersByPath | `NextToken` | 50 | `internal/ssm/client.go` |
 | SSM | DescribeParameters | `NextToken` | 50 | `internal/ssm/client.go` |
 | SQS | ListQueues | `NextToken` | 50 | `internal/sqs/client.go` |
+| EC2 | DescribeInstances | `NextToken` | 50 | `internal/ec2/client.go` |
 
 - Client methods must accept an optional pagination token parameter and return the next token alongside results.
 - Never fetch all pages eagerly on init unless the dataset is known to be small. Load one page, then lazy-load more.
@@ -466,6 +469,19 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - `esc/backspace/h` - Go back to queues
 
 **Expanded Popup (queue or message)**
+- `↑/↓` or `j/k` - Scroll up/down
+- `pgup/pgdn` - Page up/down
+- `esc` - Close popup
+
+### EC2 (`internal/ui/ec2/`)
+
+**Instances View (default)**
+- `↑/↓` or `j/k` - Navigate (lazy loads more instances near end)
+- `/` - Search/filter by name, instance ID, type, state, or IP
+- `enter` or `space` - Expand instance details in popup (full metadata and tags)
+- `y` - Copy instance ID
+
+**Expanded Instance Popup**
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
 - `esc` - Close popup

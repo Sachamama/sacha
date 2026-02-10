@@ -3,7 +3,6 @@ package ec2
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -99,11 +98,6 @@ func mapInstance(inst types.Instance) Instance {
 		if key == "Name" {
 			i.Name = val
 		}
-	}
-
-	// Normalise empty time to zero value.
-	if i.LaunchTime == (time.Time{}) {
-		i.LaunchTime = time.Time{}
 	}
 
 	return i

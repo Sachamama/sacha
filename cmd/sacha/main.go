@@ -11,6 +11,7 @@ import (
 	"github.com/sachamama/sacha/internal/config"
 	appui "github.com/sachamama/sacha/internal/ui/app"
 	dynamodbui "github.com/sachamama/sacha/internal/ui/dynamodb"
+	ec2ui "github.com/sachamama/sacha/internal/ui/ec2"
 	lambdaui "github.com/sachamama/sacha/internal/ui/lambda"
 	logsui "github.com/sachamama/sacha/internal/ui/logs"
 	s3ui "github.com/sachamama/sacha/internal/ui/s3"
@@ -98,6 +99,7 @@ func run(ctx context.Context, flags cliFlags) error {
 		"cloudwatch-logs": logsui.CloudWatchLogsService{},
 		"s3":              s3ui.S3Service{},
 		"dynamodb":        dynamodbui.DynamoDBService{},
+		"ec2":             ec2ui.EC2Service{},
 		"lambda":          lambdaui.LambdaService{},
 		"sqs":             sqsui.SQSService{},
 		"ssm":             ssmui.SSMService{},

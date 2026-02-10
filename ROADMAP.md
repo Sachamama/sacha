@@ -2,7 +2,7 @@
 
 Planned features and new AWS services, building on Sacha's existing TUI patterns.
 
-**Current services:** CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store, SQS
+**Current services:** CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store, SQS, EC2
 
 ---
 
@@ -63,16 +63,29 @@ Browse queues with message count stats and peek messages.
 
 ---
 
-## Phase 4: EC2 Instance Browser
+## Phase 4: EC2 Instance Browser _(completed — 4a)_
 
-Start with instances only. Sub-resources deferred to Phase 4b.
+### 4a: EC2 Instances _(completed)_
 
-### 4a: EC2 Instances
+Browse instances with state, type, IP, and name tag.
 
-- Browse instances with state (color-coded), type, IP, name tag
-- `enter/space` to expand instance details
-- `y` to copy instance ID
-- `DescribeInstances` (paginated)
+- **Instance list** — left pane shows instances with color-coded state, type, and name tag
+- **Instance details** — right pane shows full instance metadata (IPs, VPC, subnet, AZ, AMI, key pair, security groups, IAM profile)
+- **Expanded popup** — `enter/space` to expand instance in scrollable overlay with all details and tags
+- **Copy** — `y` to copy instance ID
+- **Search/filter** — `/` to filter by name, instance ID, type, state, or IP
+- **Lazy-load pagination** — loads more instances near the bottom of the list
+- **Color-coded states** — running (green), stopped (red), pending/stopping (yellow), terminated (gray)
+
+### Files
+
+- `internal/ec2/client.go` — `ListInstances` via `DescribeInstances` with pagination
+- `internal/ec2/types.go` — `Instance`, `SecurityGroup` domain types
+- `internal/ec2/client_test.go` — tests covering pagination, field mapping, error handling
+- `internal/ui/ec2/service.go` — `EC2Service` implementing `awsx.Service`
+- `internal/ui/ec2/model.go` — Bubble Tea model with instance list, lazy-load, expanded popup
+- `internal/ui/ec2/views.go` — two-pane layout, instance list with state colors, details, popup overlay
+- `internal/ui/ec2/messages.go` — `instancesLoadedMsg`, `moreInstancesLoadedMsg`
 
 ### 4b: EC2 Sub-Resources _(deferred)_
 

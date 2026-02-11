@@ -361,17 +361,27 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - Focused panel has colored border (pink/212); up/down navigation works within focused panel
 - Left panel (groups): search, select, toggle all functionality remains active
   - **Dynamic refresh**: Changing log group selection (via `space` or `a`) while tailing automatically clears events and restarts tailing with new selection
-- Right panel (tail): event navigation, expand, toggle view modes
-- Table columns: TIME (HH:MM:SS), GROUP (log group name), and JSON fields (when detected)
-- Table uses full available width with proportional column sizing
-- Last column expands to fill remaining space
+- Right panel (tail): event navigation, expand, highlight, filter
+- Plain view columns: TIMESTAMP (relative), GROUP (short name), MESSAGE
+- Log group names show only the last path segment (e.g., `/aws/lambda/my-func` → `my-func`)
+- Timestamps: first event shows `HH:MM:SS`, subsequent events show relative offset (`+1.5s`, `+2m30s`, `+1h5m`)
 - `↑/↓` or `j/k` - Navigate within focused panel
 - `enter` or `space` - Expand selected event (popup with formatted JSON) when tail panel focused
-- `v` - Toggle view mode (table/plain)
+- `H` - Open highlight input (jq-style field paths, e.g. `.level .message .statusCode`)
+- `F` - Toggle filter mode: when active, only events containing highlighted JSON fields are shown
 - `x` - Stop tailing (stops watching logs and resets the log panel, same behavior as `q`)
 - `f` - Toggle fullscreen mode (focuses tail panel, hides groups panel)
 - `←/→` or `h/l` - Scroll horizontally (fullscreen mode only, for viewing wide log lines)
 - `q/esc` - Stop tailing
+
+**Highlight & Filter (jq syntax)**
+- Press `H` while the tail panel is focused to open the highlight popup
+- Enter space-separated jq-style field paths: `.level .message .statusCode`
+- Matching JSON field values in log events are rendered with bold yellow highlight
+- Press `F` to toggle filtering: only events whose JSON contains at least one highlighted field are shown
+- Press `F` again to disable filtering and show all events
+- Clearing the highlight input (submitting empty) removes all highlights and disables filtering
+- StatusHelp text (tailing, with highlight active): `↑↓ move, enter expand, H highlight, F filter[on/off], tab/← switch, f fullscreen, x/q stop`
 
 **Expanded Event Popup**
 - Accessed by pressing `enter` or `space` on a selected log event while tailing

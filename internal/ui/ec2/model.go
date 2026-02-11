@@ -86,6 +86,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusLine = fmt.Sprintf("Loaded %d instances", len(m.instances))
 		return m, m.loadMoreIfNeeded()
 
+	case allInstancesLoadedMsg:
+		m.loadingMore = false
+		if msg.err != nil {
+			m.statusLine = msg.err.Error()
+			return m, nil
+		}
+		m.instances = append(m.instances, msg.instances...)
+		m.nextToken = nil
+		m.statusLine = fmt.Sprintf("Loaded all %d instances", len(m.instances))
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 	}
@@ -162,6 +173,20 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			_ = clipboard.WriteAll(id)
 			m.statusLine = "Copied: " + id
 		}
+	case "A":
+		if m.nextToken != nil && !m.loadingMore {
+			m.loadingMore = true
+			m.statusLine = "Loading all instances..."
+			return m, m.loadAllInstancesCmd()
+		}
+	case "ctrl+r":
+		m.instances = nil
+		m.nextToken = nil
+		m.cursor = 0
+		m.listOffset = 0
+		m.loading = true
+		m.statusLine = "Refreshing..."
+		return m, m.loadInstancesCmd()
 	}
 
 	return m, nil
@@ -304,6 +329,23 @@ func (m Model) loadMoreInstancesCmd() tea.Cmd {
 	}
 }
 
+func (m Model) loadAllInstancesCmd() tea.Cmd {
+	token := m.nextToken
+	return func() tea.Msg {
+		ctx := context.Background()
+		var all []ec2.Instance
+		for token != nil {
+			instances, next, err := m.client.ListInstances(ctx, token)
+			if err != nil {
+				return allInstancesLoadedMsg{err: err}
+			}
+			all = append(all, instances...)
+			token = next
+		}
+		return allInstancesLoadedMsg{instances: all}
+	}
+}
+
 // Searching reports whether the model has an active text input.
 func (m Model) Searching() bool {
 	return m.searching
@@ -317,5 +359,5 @@ func (m Model) StatusHelp() string {
 	if m.searching {
 		return "enter/esc close search"
 	}
-	return "↑↓ move, / search, enter expand, y copy ID"
+	return "↑↓ move, / search, enter expand, A load all, y copy ID, ctrl+r refresh"
 }

@@ -334,6 +334,24 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			_ = clipboard.WriteAll(uri)
 			m.statusLine = "Copied: " + uri
 		}
+	case "ctrl+r":
+		if m.bucket == "" {
+			m.buckets = nil
+			m.cursor = 0
+			m.listOffset = 0
+			m.loading = true
+			m.statusLine = "Refreshing..."
+			return m, m.loadBucketsCmd()
+		}
+		m.objects = nil
+		m.nextToken = nil
+		m.selected = make(map[string]bool)
+		m.cursor = 0
+		m.listOffset = 0
+		m.details = nil
+		m.loading = true
+		m.statusLine = "Refreshing..."
+		return m, m.loadObjectsCmd()
 	}
 
 	return m, nil
@@ -910,8 +928,8 @@ func (m Model) StatusHelp() string {
 	}
 	if m.bucket == "" {
 		// Bucket list view
-		return "↑↓ move, / search, enter open, y copy"
+		return "↑↓ move, / search, enter open, y copy, ctrl+r refresh"
 	}
 	// Inside bucket
-	return "↑↓ move, / search, space select, a all, A load+select all, d download, p preview, y copy, esc back"
+	return "↑↓ move, / search, space select, a all, A load+select all, d download, p preview, y copy, ctrl+r refresh, esc back"
 }

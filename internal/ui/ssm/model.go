@@ -216,6 +216,15 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			_ = clipboard.WriteAll(text)
 			m.statusLine = "Copied: " + text
 		}
+	case "ctrl+r":
+		m.params = nil
+		m.nextToken = nil
+		m.cursor = 0
+		m.listOffset = 0
+		m.details = nil
+		m.loading = true
+		m.statusLine = "Refreshing..."
+		return m, m.loadParametersCmd()
 	}
 
 	return m, nil
@@ -491,7 +500,7 @@ func (m Model) StatusHelp() string {
 		return "↑↓ scroll, esc close"
 	}
 	if len(m.path) == 0 {
-		return "↑↓ move, / search, enter open, y copy"
+		return "↑↓ move, / search, enter open, y copy, ctrl+r refresh"
 	}
-	return "↑↓ move, / search, enter open/expand, y copy, esc back"
+	return "↑↓ move, / search, enter open/expand, y copy, ctrl+r refresh, esc back"
 }

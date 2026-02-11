@@ -275,6 +275,27 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			_ = clipboard.WriteAll(text)
 			m.statusLine = "Copied: " + text
 		}
+	case "ctrl+r":
+		if m.viewingMessages {
+			// Refresh messages
+			items := m.filteredQueues()
+			if len(items) > 0 && m.cursor < len(items) {
+				m.messages = nil
+				m.messageCursor = 0
+				m.messageOffset = 0
+				m.statusLine = "Refreshing..."
+				return m, m.peekMessagesCmd(items[m.cursor].URL)
+			}
+		} else {
+			m.queues = nil
+			m.nextToken = nil
+			m.cursor = 0
+			m.listOffset = 0
+			m.attrs = nil
+			m.loading = true
+			m.statusLine = "Refreshing..."
+			return m, m.loadQueuesCmd()
+		}
 	}
 
 	return m, nil
@@ -538,7 +559,7 @@ func (m Model) StatusHelp() string {
 		return "↑↓ scroll, esc close"
 	}
 	if m.viewingMessages {
-		return "↑↓ move, enter expand, y copy body, esc back"
+		return "↑↓ move, enter expand, y copy body, ctrl+r refresh, esc back"
 	}
-	return "↑↓ move, / search, enter peek, space expand, y copy URL"
+	return "↑↓ move, / search, enter peek, space expand, y copy URL, ctrl+r refresh"
 }

@@ -35,3 +35,15 @@ type moreItemsLoadedMsg struct {
 	result *dynamodb.ScanResult
 	err    error
 }
+
+// allTablesLoadedMsg is sent when all remaining tables are loaded.
+type allTablesLoadedMsg struct {
+	tables []dynamodb.Table
+	err    error
+}
+
+// allItemsLoadedMsg is sent when all remaining items are loaded.
+type allItemsLoadedMsg struct {
+	result *dynamodb.ScanResult
+	err    error
+}

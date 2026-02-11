@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/sachamama/sacha/internal/logs"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -538,6 +539,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.highlightFields = nil
 				m.filterByHL = false
 			}
+		case "y":
+			text := m.getCopyText()
+			if text != "" {
+				_ = clipboard.WriteAll(text)
+				m.statusLine = "Copied: " + text
+			}
+		case "ctrl+r":
+			if !m.tailing {
+				m.logGroups = nil
+				m.nextGroupToken = nil
+				m.cursor = 0
+				m.listOffset = 0
+				m.loading = true
+				m.statusLine = "Refreshing..."
+				return m, m.loadLogGroupsCmd()
+			}
 		}
 	case pollTailMsg:
 		if !m.tailing {
@@ -793,6 +810,19 @@ func (m Model) selectedCount() int {
 	return count
 }
 
+func (m Model) getCopyText() string {
+	// When tailing and focused on tail panel, copy the selected event message
+	if m.tailing && m.focus == panelTail && len(m.events) > 0 && m.eventCursor < len(m.events) {
+		return m.events[m.eventCursor].Message
+	}
+	// Otherwise copy the log group name under cursor
+	groups := m.filteredGroups()
+	if len(groups) == 0 || m.cursor >= len(groups) {
+		return ""
+	}
+	return groups[m.cursor].Name
+}
+
 // Tailing reports whether the model is actively tailing logs.
 func (m Model) Tailing() bool {
 	return m.tailing
@@ -835,14 +865,14 @@ func (m Model) StatusHelp() string {
 			hlInfo = ", H highlight"
 		}
 		if m.fullscreen {
-			return fmt.Sprintf("↑↓ move, ←→ scroll, enter expand%s, f exit fullscreen, x/q stop", hlInfo)
+			return fmt.Sprintf("↑↓ move, ←→ scroll, enter expand, y copy%s, f exit fullscreen, x/q stop", hlInfo)
 		}
 		if m.focus == panelGroups {
-			return "↑↓ move, / search, space select, a all, tab/→ switch, f fullscreen, x/q stop"
+			return "↑↓ move, / search, space select, a all, y copy, tab/→ switch, f fullscreen, x/q stop"
 		}
-		return fmt.Sprintf("↑↓ move, enter expand%s, tab/← switch, f fullscreen, x/q stop", hlInfo)
+		return fmt.Sprintf("↑↓ move, enter expand, y copy%s, tab/← switch, f fullscreen, x/q stop", hlInfo)
 	}
-	return "↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail"
+	return "↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail, y copy, ctrl+r refresh"
 }
 
 func (m *Model) setViewportSize(bodyHeight int) {

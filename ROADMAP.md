@@ -24,23 +24,12 @@ Queue list with message stats, non-destructive message peeking, message body vie
 
 Instance list with color-coded state, full metadata details, expanded popup with tags, copy instance ID (`y`), search/filter, lazy-load pagination.
 
----
+### Phase 5: Feature Consistency
 
-## Phase 5: Feature Consistency
-
-Align all services to a consistent baseline before adding new ones.
-
-### 5a: Copy Support for CloudWatch Logs
-
-CloudWatch Logs is the only service missing the `y` key binding. Add copy support for log group names (and log group ARNs in the details pane).
-
-### 5b: "Load All" for Paginated Lists
-
-S3 is the only service with an `A` key to load all remaining pages at once. Extend this pattern to services where bulk visibility matters: DynamoDB tables, Lambda functions, EC2 instances.
-
-### 5c: Refresh Support
-
-Add a `ctrl+r` or `g` keybinding across all services to reload the current view from AWS. Currently, stale data requires restarting the app.
+Aligned all services to a consistent baseline:
+- **5a** — Copy support (`y`) for CloudWatch Logs: copies log group name or event message (when tailing).
+- **5b** — "Load All" (`A`) for DynamoDB tables/items, Lambda functions, and EC2 instances.
+- **5c** — Refresh (`ctrl+r`) across all seven services to reload the current view from AWS.
 
 ---
 

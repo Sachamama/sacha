@@ -485,14 +485,14 @@ func TestStatusHelp(t *testing.T) {
 
 	// Table list view
 	help := m.StatusHelp()
-	if help != "↑↓ move, / search, enter open, pgup/pgdn details, y copy ARN" {
+	if help != "↑↓ move, / search, enter open, A load all, pgup/pgdn details, y copy ARN, ctrl+r refresh" {
 		t.Errorf("unexpected help: %q", help)
 	}
 
 	// Items view
 	m.table = "test"
 	help = m.StatusHelp()
-	if help != "↑↓ move, / search, enter expand, pgup/pgdn details, y copy ARN, esc/h back" {
+	if help != "↑↓ move, / search, enter expand, A load all, pgup/pgdn details, y copy ARN, ctrl+r refresh, esc/h back" {
 		t.Errorf("unexpected help: %q", help)
 	}
 

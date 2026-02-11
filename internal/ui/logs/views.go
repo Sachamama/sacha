@@ -3,7 +3,6 @@ package logs
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -42,11 +41,6 @@ var (
 	dimText = lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 
-	// tableHeaderStyle for table column headers
-	tableHeaderStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("39")).
-				Bold(true)
-
 	statusStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("44"))
 
@@ -61,6 +55,10 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("63")).
 			Padding(1, 2)
+
+	highlightStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("226")).
+			Bold(true)
 )
 
 func (m Model) renderGroups() string {
@@ -129,7 +127,25 @@ func (m Model) renderTail() string {
 	if !m.tailing {
 		return m.renderGroupDetails()
 	}
-	return fmt.Sprintf("%s\n%s", titleStyle.Render("Logs"), m.view.View())
+	header := titleStyle.Render("Logs")
+	if evts := m.filteredEvents(); len(evts) > 0 {
+		minTime := evts[0].Timestamp
+		for _, e := range evts[1:] {
+			if e.Timestamp.Before(minTime) {
+				minTime = e.Timestamp
+			}
+		}
+		header += "  " + dimText.Render(fmt.Sprintf("since %s", minTime.Format("15:04:05")))
+	}
+	if len(m.highlightFields) > 0 {
+		hlText := strings.Join(m.highlightFields, " ")
+		if m.filterByHL {
+			header += "  " + statusStyle.Render(fmt.Sprintf("[HL: %s] [filter: on]", hlText))
+		} else {
+			header += "  " + statusStyle.Render(fmt.Sprintf("[HL: %s]", hlText))
+		}
+	}
+	return fmt.Sprintf("%s\n%s", header, m.view.View())
 }
 
 func (m Model) renderGroupDetails() string {
@@ -165,52 +181,89 @@ func (m Model) renderGroupDetails() string {
 	return b.String()
 }
 
-func renderEvents(events []logs.TailEvent, jsonView bool, cursor, width int, showCursor bool, scrollX int) string {
+func renderEvents(events []logs.TailEvent, cursor, width int, showCursor bool, scrollX int, highlightFields []string) string {
 	if len(events) == 0 {
 		return ""
 	}
+	return renderEventsPlain(events, cursor, width, showCursor, scrollX, highlightFields)
+}
 
-	// If JSON view is disabled, always use plain rendering
-	if !jsonView {
-		return renderEventsPlain(events, cursor, width, showCursor, scrollX)
+// shortGroupName returns the last path segment of a log group name.
+// e.g. "/aws/lambda/my-func" -> "my-func"
+func shortGroupName(name string) string {
+	if i := strings.LastIndex(name, "/"); i >= 0 && i < len(name)-1 {
+		return name[i+1:]
 	}
+	return name
+}
 
-	// Check if events contain JSON - sample first few
-	hasJSON := false
-	var allKeys []string
-	keySet := make(map[string]bool)
+// relativeTimestamp formats a timestamp relative to a base time.
+// The first event shows the full HH:MM:SS, subsequent events show +Xs offset.
+func relativeTimestamp(ts, base time.Time) string {
+	if ts.Equal(base) {
+		return ts.Format("15:04:05")
+	}
+	diff := ts.Sub(base)
+	secs := diff.Seconds()
+	if secs < 0 {
+		return ts.Format("15:04:05")
+	}
+	if secs < 60 {
+		return fmt.Sprintf("+%.1fs", secs)
+	}
+	if secs < 3600 {
+		return fmt.Sprintf("+%.0fm%.0fs", secs/60, float64(int(secs)%60))
+	}
+	return fmt.Sprintf("+%.0fh%.0fm", secs/3600, float64(int(secs)%3600)/60)
+}
 
-	for i, e := range events {
-		if i > 10 {
-			break // Sample first 10 to detect pattern
+// highlightMessage applies highlighting to a message for the given jq-style field paths.
+// Fields are specified as ".fieldName" and matching values are highlighted in the output.
+func highlightMessage(msg string, fields []string) string {
+	if len(fields) == 0 {
+		return msg
+	}
+	parsed := parseJSONLog(msg)
+	if parsed == nil {
+		return msg
+	}
+	for _, field := range fields {
+		key := strings.TrimPrefix(field, ".")
+		if key == "" {
+			continue
 		}
-		if parsed := parseJSONLog(e.Message); parsed != nil {
-			hasJSON = true
-			for k := range parsed {
-				if !keySet[k] {
-					keySet[k] = true
-					allKeys = append(allKeys, k)
-				}
+		val, ok := parsed[key]
+		if !ok {
+			continue
+		}
+		valStr := formatValue(val)
+		if valStr == "" {
+			continue
+		}
+		// Highlight occurrences of the value in the message
+		msg = strings.ReplaceAll(msg, valStr, highlightStyle.Render(valStr))
+	}
+	return msg
+}
+
+func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bool, scrollX int, highlightFields []string) string {
+	var b strings.Builder
+
+	// Find the min (earliest) timestamp as the base for relative display
+	var baseTime time.Time
+	if len(events) > 0 {
+		baseTime = events[0].Timestamp
+		for _, e := range events[1:] {
+			if e.Timestamp.Before(baseTime) {
+				baseTime = e.Timestamp
 			}
 		}
 	}
 
-	if !hasJSON {
-		// Fall back to original rendering
-		return renderEventsPlain(events, cursor, width, showCursor, scrollX)
-	}
-
-	// Render as table
-	return renderEventsTable(events, allKeys, cursor, width, showCursor, scrollX)
-}
-
-func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bool, scrollX int) string {
-	var b strings.Builder
-
 	// Calculate column widths
-	timeWidth := 25 // RFC3339 format
+	timeWidth := 8 // enough for "HH:MM:SS" or "+XXmXXs"
 	groupWidth := 20
-	separators := 6 // " | " twice
+	separators := 6 // " │ " twice
 	pointer := 1    // "▶" or " "
 	msgWidth := width - timeWidth - groupWidth - separators - pointer
 	if msgWidth < 20 {
@@ -218,9 +271,11 @@ func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bo
 	}
 
 	for i, e := range events {
-		ts := padRight(e.Timestamp.Format(time.RFC3339), timeWidth)
-		group := padRight(truncate(e.LogGroup, groupWidth), groupWidth)
-		msg := truncate(strings.TrimSpace(e.Message), msgWidth+scrollX)
+		ts := padRight(relativeTimestamp(e.Timestamp, baseTime), timeWidth)
+		group := padRight(truncate(shortGroupName(e.LogGroup), groupWidth), groupWidth)
+		msg := strings.TrimSpace(e.Message)
+		msg = highlightMessage(msg, highlightFields)
+		msg = truncate(msg, msgWidth+scrollX)
 		line := fmt.Sprintf("%s │ %s │ %s", ts, group, msg)
 		line = scrollLine(line, scrollX)
 		if showCursor && i == cursor {
@@ -229,139 +284,6 @@ func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bo
 			fmt.Fprintln(&b, " "+line)
 		}
 	}
-	return b.String()
-}
-
-func renderEventsTable(events []logs.TailEvent, keys []string, cursor, width int, showCursor bool, scrollX int) string {
-	// Sort keys for consistent column order (timestamp-like fields first)
-	sort.Slice(keys, func(i, j int) bool {
-		priority := map[string]int{
-			"timestamp": 0, "time": 1, "level": 2,
-			"message": 3, "msg": 4,
-		}
-		pi, oki := priority[strings.ToLower(keys[i])]
-		pj, okj := priority[strings.ToLower(keys[j])]
-		if oki && okj {
-			return pi < pj
-		}
-		if oki {
-			return true
-		}
-		if okj {
-			return false
-		}
-		return keys[i] < keys[j]
-	})
-
-	// Build columns: TIME + GROUP + JSON keys
-	columns := append([]string{"TIME", "GROUP"}, keys...)
-	numCols := len(columns)
-
-	// Pre-compute all cell values and track column widths
-	type row struct {
-		cells []string
-	}
-	rows := make([]row, len(events))
-	colWidths := make([]int, numCols)
-
-	// Initialize widths from headers
-	for i, col := range columns {
-		colWidths[i] = len(col)
-	}
-
-	// Compute cell values and update widths
-	for i, e := range events {
-		cells := make([]string, numCols)
-		cells[0] = e.Timestamp.Format("15:04:05")
-		cells[1] = e.LogGroup
-
-		parsed := parseJSONLog(e.Message)
-		if parsed == nil {
-			// Non-JSON row - show raw message in third column
-			if numCols > 2 {
-				cells[2] = strings.TrimSpace(e.Message)
-			}
-		} else {
-			for j, k := range keys {
-				if v, ok := parsed[k]; ok {
-					cells[j+2] = formatValue(v)
-				}
-			}
-		}
-
-		rows[i] = row{cells: cells}
-
-		// Update column widths
-		for j, cell := range cells {
-			if len(cell) > colWidths[j] {
-				colWidths[j] = len(cell)
-			}
-		}
-	}
-
-	// Calculate available width (subtract pointer, separators, padding)
-	pointer := 2                                       // "▶ " or "  "
-	separators := (numCols - 1) * 3                    // " │ " between columns
-	availableWidth := width - pointer - separators - 2 // 2 for safety margin
-
-	// Distribute width: fixed columns first, then expand flexible ones
-	totalCurrentWidth := 0
-	for _, w := range colWidths {
-		totalCurrentWidth += w
-	}
-
-	if totalCurrentWidth < availableWidth {
-		// Expand last column (usually message) to fill space
-		extra := availableWidth - totalCurrentWidth
-		colWidths[numCols-1] += extra
-	} else {
-		// Cap columns proportionally
-		const maxColWidth = 40
-		for i := range colWidths {
-			if colWidths[i] > maxColWidth && i < numCols-1 {
-				colWidths[i] = maxColWidth
-			}
-		}
-		// Recalculate and give remaining to last column
-		usedWidth := 0
-		for i := 0; i < numCols-1; i++ {
-			usedWidth += colWidths[i]
-		}
-		lastColWidth := availableWidth - usedWidth
-		if lastColWidth < 10 {
-			lastColWidth = 10
-		}
-		colWidths[numCols-1] = lastColWidth
-	}
-
-	// Render table
-	var b strings.Builder
-
-	// Top padding
-	fmt.Fprintln(&b)
-
-	// Header row
-	headerParts := make([]string, 0, len(columns))
-	for i, col := range columns {
-		headerParts = append(headerParts, padRight(col, colWidths[i]))
-	}
-	headerLine := scrollLine(strings.Join(headerParts, "   "), scrollX)
-	fmt.Fprintln(&b, " "+tableHeaderStyle.Render(headerLine))
-
-	// Data rows
-	for i, r := range rows {
-		rowParts := make([]string, 0, len(r.cells))
-		for j, cell := range r.cells {
-			rowParts = append(rowParts, padRight(truncate(cell, colWidths[j]), colWidths[j]))
-		}
-		line := scrollLine(strings.Join(rowParts, "   "), scrollX)
-		if showCursor && i == cursor {
-			fmt.Fprintln(&b, hoverPointer+hoverStyle.Render(line))
-		} else {
-			fmt.Fprintln(&b, " "+line)
-		}
-	}
-
 	return b.String()
 }
 
@@ -454,6 +376,22 @@ func checkbox(selected bool) string {
 		return "x"
 	}
 	return " "
+}
+
+func (m Model) renderHighlightPopup() string {
+	b := &strings.Builder{}
+	fmt.Fprintln(b, titleStyle.Render("Highlight Fields"))
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, dimText.Render("Enter jq-style field paths separated by spaces:"))
+	fmt.Fprintln(b, dimText.Render("  .level .message .statusCode"))
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, m.highlightInput.View())
+	fmt.Fprintln(b)
+	if len(m.highlightFields) > 0 {
+		fmt.Fprintf(b, "%s %s\n", dimText.Render("Active:"), strings.Join(m.highlightFields, " "))
+	}
+	fmt.Fprintln(b, dimText.Render("Enter to apply, Esc to cancel, empty to clear"))
+	return popupStyle.Render(b.String())
 }
 
 func (m Model) renderCreatePopup() string {

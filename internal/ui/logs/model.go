@@ -114,7 +114,6 @@ type Model struct {
 	pollInterval time.Duration
 	events       []logs.TailEvent
 	view         viewport.Model
-	jsonView     bool // toggle between JSON table view and plain view
 
 	fullscreen    bool           // fullscreen tail mode
 	focus         panel          // which panel has focus
@@ -122,6 +121,12 @@ type Model struct {
 	expandedEvent int            // index of expanded event, -1 if none
 	scrollX       int            // horizontal scroll offset for fullscreen
 	expandedView  viewport.Model // viewport for expanded event
+
+	// Highlight/filter: jq-style field paths like ".level", ".message"
+	highlightFields []string        // fields to highlight in log output
+	highlightInput  textinput.Model // text input for entering highlight expression
+	enteringHL      bool            // whether the highlight input is active
+	filterByHL      bool            // when true, only show events matching highlight fields
 }
 
 func NewModel(client *logs.Client) Model {
@@ -133,15 +138,19 @@ func NewModel(client *logs.Client) Model {
 	ci.Placeholder = "log group name"
 	ci.Prompt = "Name: "
 
+	hi := textinput.New()
+	hi.Placeholder = ".level .message"
+	hi.Prompt = "highlight: "
+
 	return Model{
-		client:        client,
-		selected:      map[string]bool{},
-		loading:       true,
-		search:        ti,
-		createInput:   ci,
-		pollInterval:  defaultPollInterval,
-		jsonView:      true, // default to table view for JSON logs
-		expandedEvent: -1,   // no event expanded
+		client:         client,
+		selected:       map[string]bool{},
+		loading:        true,
+		search:         ti,
+		createInput:    ci,
+		highlightInput: hi,
+		pollInterval:   defaultPollInterval,
+		expandedEvent:  -1, // no event expanded
 	}
 }
 
@@ -291,6 +300,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		// Handle highlight input
+		if m.enteringHL {
+			switch msg.Type {
+			case tea.KeyEnter:
+				m.enteringHL = false
+				val := strings.TrimSpace(m.highlightInput.Value())
+				if val == "" {
+					m.highlightFields = nil
+				} else {
+					m.highlightFields = strings.Fields(val)
+				}
+				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
+				m.ensureEventCursorVisible()
+				return m, nil
+			case tea.KeyEscape:
+				m.enteringHL = false
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.highlightInput, cmd = m.highlightInput.Update(msg)
+			return m, cmd
+		}
+
 		// Handle expanded event popup
 		if m.expandedEvent >= 0 {
 			switch msg.String() {
@@ -316,7 +348,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.focus = panelTail
 				}
-				m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 			}
 		case "left", "h":
 			if m.tailing && m.fullscreen {
@@ -326,7 +358,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.scrollX < 0 {
 						m.scrollX = 0
 					}
-					m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, true, m.scrollX))
+					m.view.SetContent(m.renderEventsContent(true))
 				}
 			} else if m.tailing && !m.fullscreen {
 				if m.focus == panelTail {
@@ -334,26 +366,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.focus = panelTail
 				}
-				m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 			}
 		case "right", "l":
 			if m.tailing && m.fullscreen {
 				// Horizontal scroll right in fullscreen
 				m.scrollX += 10
-				m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, true, m.scrollX))
+				m.view.SetContent(m.renderEventsContent(true))
 			} else if m.tailing && !m.fullscreen {
 				if m.focus == panelGroups {
 					m.focus = panelTail
 				} else {
 					m.focus = panelGroups
 				}
-				m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 			}
 		case "up", "k":
 			if m.tailing && m.focus == panelTail {
 				if m.eventCursor > 0 {
 					m.eventCursor--
-					m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+					m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 					m.ensureEventCursorVisible()
 				}
 			} else {
@@ -364,9 +396,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "down", "j":
 			if m.tailing && m.focus == panelTail {
-				if m.eventCursor < len(m.events)-1 {
+				if m.eventCursor < len(m.filteredEvents())-1 {
 					m.eventCursor++
-					m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+					m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 					m.ensureEventCursorVisible()
 				}
 			} else {
@@ -388,9 +420,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.search.Focus()
 			}
 		case " ":
-			if m.tailing && m.focus == panelTail && len(m.events) > 0 {
+			if m.tailing && m.focus == panelTail && len(m.filteredEvents()) > 0 {
+				evts := m.filteredEvents()
 				m.expandedEvent = m.eventCursor
-				m.expandedView = initExpandedView(m.events[m.eventCursor], m.width, m.height)
+				m.expandedView = initExpandedView(evts[m.eventCursor], m.width, m.height)
 			} else {
 				m.toggleSelection()
 				// Refresh logs when selection changes while tailing
@@ -398,14 +431,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.events = nil
 					m.eventCursor = 0
 					m.tailStart = time.Now().Add(-defaultTailWindow)
-					m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+					m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 					return m, m.pollTailCmd()
 				}
 			}
 		case "enter":
-			if m.tailing && m.focus == panelTail && len(m.events) > 0 {
+			if m.tailing && m.focus == panelTail && len(m.filteredEvents()) > 0 {
+				evts := m.filteredEvents()
 				m.expandedEvent = m.eventCursor
-				m.expandedView = initExpandedView(m.events[m.eventCursor], m.width, m.height)
+				m.expandedView = initExpandedView(evts[m.eventCursor], m.width, m.height)
 			}
 		case "a":
 			if !m.tailing || m.focus == panelGroups {
@@ -415,7 +449,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.events = nil
 					m.eventCursor = 0
 					m.tailStart = time.Now().Add(-defaultTailWindow)
-					m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+					m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 					return m, m.pollTailCmd()
 				}
 			}
@@ -462,7 +496,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.scrollX = 0 // Reset horizontal scroll when exiting fullscreen
 				}
 				m.setViewportSize(m.bodyHeight())
-				m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 				m.ensureEventCursorVisible()
 			}
 		case "q", "esc":
@@ -471,13 +505,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.fullscreen = false
 				m.focus = panelGroups
 				m.scrollX = 0
+				m.highlightFields = nil
+				m.filterByHL = false
 			}
-		case "v":
-			if m.tailing {
-				m.jsonView = !m.jsonView
-				m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+		case "H":
+			// Open highlight input (jq-style field paths)
+			if m.tailing && m.focus == panelTail {
+				m.enteringHL = true
+				// Pre-fill with current highlight expression
+				m.highlightInput.SetValue(strings.Join(m.highlightFields, " "))
+				return m, m.highlightInput.Focus()
+			}
+		case "F":
+			// Toggle filter-by-highlight mode
+			if m.tailing && m.focus == panelTail && len(m.highlightFields) > 0 {
+				m.filterByHL = !m.filterByHL
+				m.eventCursor = 0
+				m.view.SetContent(m.renderEventsContent(true))
 				m.ensureEventCursorVisible()
-				return m, nil
 			}
 		case "x":
 			// Stop watching and reset Log panel
@@ -488,6 +533,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.events = nil
 				m.eventCursor = 0
 				m.scrollX = 0
+				m.highlightFields = nil
+				m.filterByHL = false
 			}
 		}
 	case pollTailMsg:
@@ -515,12 +562,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			// Auto-scroll to latest events when cursor was at the end
+			evts := m.filteredEvents()
 			if wasAtEnd {
-				m.eventCursor = len(m.events) - 1
-			} else if m.eventCursor >= len(m.events) {
-				m.eventCursor = len(m.events) - 1
+				m.eventCursor = len(evts) - 1
+			} else if m.eventCursor >= len(evts) {
+				m.eventCursor = len(evts) - 1
 			}
-			m.view.SetContent(renderEvents(m.events, m.jsonView, m.eventCursor, m.view.Width, m.focus == panelTail, m.scrollX))
+			if m.eventCursor < 0 {
+				m.eventCursor = 0
+			}
+			m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 			m.ensureEventCursorVisible()
 		}
 		if m.tailing {
@@ -587,8 +638,14 @@ func (m Model) View() string {
 			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
 	}
 
-	if m.expandedEvent >= 0 && m.expandedEvent < len(m.events) {
-		popup := m.renderExpandedEvent(m.events[m.expandedEvent])
+	if m.enteringHL {
+		popup := m.renderHighlightPopup()
+		view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
+			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
+	}
+
+	if evts := m.filteredEvents(); m.expandedEvent >= 0 && m.expandedEvent < len(evts) {
+		popup := m.renderExpandedEvent(evts[m.expandedEvent])
 		view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
 			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
 	}
@@ -741,7 +798,7 @@ func (m Model) Tailing() bool {
 
 // Searching reports whether the model has an active text input or overlay.
 func (m Model) Searching() bool {
-	return m.searching || m.creating || m.deleting || m.settingRetention
+	return m.searching || m.creating || m.deleting || m.settingRetention || m.enteringHL
 }
 
 // StatusHelp returns context-aware help text for the status bar.
@@ -761,22 +818,27 @@ func (m Model) StatusHelp() string {
 	if m.searching {
 		return "enter/esc close search"
 	}
+	if m.enteringHL {
+		return "enter apply, esc cancel — use jq syntax: .level .message"
+	}
 	if m.tailing {
-		if m.fullscreen {
-			viewMode := "table"
-			if !m.jsonView {
-				viewMode = "plain"
+		hlInfo := ""
+		if len(m.highlightFields) > 0 {
+			filterState := "off"
+			if m.filterByHL {
+				filterState = "on"
 			}
-			return fmt.Sprintf("↑↓ move, ←→ scroll, enter expand, v [%s], f exit fullscreen, x/q stop", viewMode)
+			hlInfo = fmt.Sprintf(", H highlight, F filter[%s]", filterState)
+		} else {
+			hlInfo = ", H highlight"
+		}
+		if m.fullscreen {
+			return fmt.Sprintf("↑↓ move, ←→ scroll, enter expand%s, f exit fullscreen, x/q stop", hlInfo)
 		}
 		if m.focus == panelGroups {
 			return "↑↓ move, / search, space select, a all, tab/→ switch, f fullscreen, x/q stop"
 		}
-		viewMode := "table"
-		if !m.jsonView {
-			viewMode = "plain"
-		}
-		return fmt.Sprintf("↑↓ move, enter expand, v [%s], tab/← switch, f fullscreen, x/q stop", viewMode)
+		return fmt.Sprintf("↑↓ move, enter expand%s, tab/← switch, f fullscreen, x/q stop", hlInfo)
 	}
 	return "↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail"
 }
@@ -851,27 +913,53 @@ func (m *Model) ensureCursorVisible() {
 }
 
 // eventContentOffset returns the number of header lines rendered before event
-// rows in the viewport content. Table view prepends a blank line and a header
-// row; plain view starts immediately with event rows.
+// rows in the viewport content. Plain view starts immediately with event rows.
 func (m *Model) eventContentOffset() int {
-	if !m.jsonView {
-		return 0
-	}
-	for i, e := range m.events {
-		if i > 10 {
-			break
-		}
-		if parseJSONLog(e.Message) != nil {
-			return 2 // blank line + header row in table view
-		}
-	}
 	return 0
+}
+
+// filteredEvents returns events filtered by highlight fields when filterByHL is active.
+func (m *Model) filteredEvents() []logs.TailEvent {
+	if !m.filterByHL || len(m.highlightFields) == 0 {
+		return m.events
+	}
+	var out []logs.TailEvent
+	for _, e := range m.events {
+		if eventMatchesHighlight(e, m.highlightFields) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// eventMatchesHighlight checks if an event's JSON message contains any of the highlight fields.
+func eventMatchesHighlight(e logs.TailEvent, fields []string) bool {
+	parsed := parseJSONLog(e.Message)
+	if parsed == nil {
+		return false
+	}
+	for _, field := range fields {
+		key := strings.TrimPrefix(field, ".")
+		if key == "" {
+			continue
+		}
+		if _, ok := parsed[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// renderEventsContent builds the viewport content for the tail panel.
+func (m *Model) renderEventsContent(showCursor bool) string {
+	return renderEvents(m.filteredEvents(), m.eventCursor, m.view.Width, showCursor, m.scrollX, m.highlightFields)
 }
 
 // ensureEventCursorVisible adjusts the viewport's YOffset so the line
 // corresponding to eventCursor is within the visible area.
 func (m *Model) ensureEventCursorVisible() {
-	if len(m.events) == 0 || m.view.Height <= 0 {
+	evts := m.filteredEvents()
+	if len(evts) == 0 || m.view.Height <= 0 {
 		return
 	}
 	cursorLine := m.eventCursor + m.eventContentOffset()

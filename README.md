@@ -32,7 +32,7 @@ Sacha is a two-pane TUI inspired by classic file managers. It keeps you in the t
 
 | Service | What you can do |
 |---------|----------------|
-| **CloudWatch Logs** | Search, multi-select, and tail multiple log groups. JSON logs auto-format as tables. Create, delete, and set retention policies. |
+| **CloudWatch Logs** | Search, multi-select, and tail multiple log groups. Highlight and filter JSON fields with jq syntax. Create, delete, and set retention policies. |
 | **S3** | Browse buckets and objects. Download files and folders recursively. Preview text content. Copy S3 URIs. |
 | **DynamoDB** | Browse tables and scan items. View table metadata, key schema, and GSIs. Inspect full item attributes. |
 | **Lambda** | Browse functions. View configuration, environment variables, layers, and runtime details. |
@@ -148,7 +148,9 @@ Sacha remembers your last-used region and service automatically.
 - **Split-pane TUI** &mdash; left pane lists log groups; right pane shows details or live tail output.
 - **Log group management** &mdash; create (`c`), delete (`d`) with confirmation, set retention policy (`R`) with standard presets (1d to 1y or never).
 - **Multi-group tailing** &mdash; select multiple groups with `space`/`a` and tail them simultaneously with `t`. Dynamic refresh when selection changes.
-- **Smart formatting** &mdash; JSON logs auto-detected and displayed as tables with TIME, GROUP, and extracted fields. Toggle table/plain with `v`.
+- **Compact display** &mdash; log group names show only the last path segment (e.g., `/aws/lambda/my-func` &rarr; `my-func`). Timestamps show the base time for the first event and relative offsets (`+1.5s`, `+2m30s`) for subsequent events.
+- **jq-style highlight** &mdash; press `H` while tailing to enter field paths (e.g., `.level .message .statusCode`). Matching JSON values are highlighted in the log output.
+- **Filter by highlight** &mdash; press `F` to toggle filtering: only events containing the highlighted fields are shown. Press `F` again to show all events.
 - **Panel focus** &mdash; `tab`/`h`/`l` to switch between groups and tail panels. Focused panel highlighted with colored border.
 - **Fullscreen mode** &mdash; press `f` while tailing for a distraction-free view with horizontal scrolling.
 - **Expand events** &mdash; `enter`/`space` to open a scrollable popup with pretty-printed JSON.
@@ -223,7 +225,8 @@ Sacha remembers your last-used region and service automatically.
 | `t` | List | Start tailing selected groups |
 | `tab`, `h/l` | Tailing | Switch panel focus |
 | `enter` / `space` | Tailing | Expand log event |
-| `v` | Tailing | Toggle table / plain view |
+| `H` | Tailing | Set highlight fields (jq syntax: `.level .message`) |
+| `F` | Tailing | Toggle filter by highlighted fields |
 | `f` | Tailing | Toggle fullscreen |
 | `h/l` or `←/→` | Fullscreen | Scroll horizontally |
 | `x` or `q/esc` | Tailing | Stop tailing |

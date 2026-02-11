@@ -129,6 +129,7 @@ func run(ctx context.Context, flags cliFlags) error {
 		runtime = finalModel.Runtime()
 	}
 
+	fileCfg.LastProfile = runtime.Profile
 	fileCfg.LastRegion = runtime.Region
 	fileCfg.LastService = runtime.Service
 	return config.Save(cfgPath, fileCfg)

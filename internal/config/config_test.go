@@ -12,6 +12,7 @@ func TestSaveAndLoad(t *testing.T) {
 	want := &Config{
 		DefaultProfile: "dev",
 		DefaultRegion:  "us-east-1",
+		LastProfile:    "staging",
 		LastRegion:     "us-west-2",
 		LastService:    "cloudwatch-logs",
 	}
@@ -34,6 +35,7 @@ func TestResolvePrecedence(t *testing.T) {
 	fileCfg := &Config{
 		DefaultProfile: "file-profile",
 		DefaultRegion:  "file-region",
+		LastProfile:    "file-last-profile",
 		LastRegion:     "file-last-region",
 		LastService:    "file-service",
 	}
@@ -48,6 +50,7 @@ func TestResolvePrecedence(t *testing.T) {
 		Region:  "env-region",
 	}
 
+	// CLI flags take priority over everything.
 	runtime := Resolve(flags, env, fileCfg)
 
 	if runtime.Profile != flags.Profile {
@@ -60,7 +63,7 @@ func TestResolvePrecedence(t *testing.T) {
 		t.Fatalf("service precedence failed, got %s", runtime.Service)
 	}
 
-	// Now test env takes priority when flags are empty.
+	// Env takes priority when flags are empty.
 	runtime = Resolve(Flags{}, env, fileCfg)
 	if runtime.Profile != env.Profile {
 		t.Fatalf("profile env precedence failed, got %s", runtime.Profile)
@@ -69,13 +72,23 @@ func TestResolvePrecedence(t *testing.T) {
 		t.Fatalf("region env precedence failed, got %s", runtime.Region)
 	}
 
-	// Config fallback.
+	// LastProfile takes priority over DefaultProfile.
 	runtime = Resolve(Flags{}, Env{}, fileCfg)
-	if runtime.Profile != fileCfg.DefaultProfile {
-		t.Fatalf("profile config precedence failed, got %s", runtime.Profile)
+	if runtime.Profile != fileCfg.LastProfile {
+		t.Fatalf("profile last-used precedence failed, got %s", runtime.Profile)
 	}
 	if runtime.Region != fileCfg.LastRegion {
 		t.Fatalf("region config precedence failed, got %s", runtime.Region)
+	}
+
+	// DefaultProfile used when LastProfile is empty.
+	fileCfgNoLast := &Config{
+		DefaultProfile: "file-profile",
+		DefaultRegion:  "file-region",
+	}
+	runtime = Resolve(Flags{}, Env{}, fileCfgNoLast)
+	if runtime.Profile != fileCfgNoLast.DefaultProfile {
+		t.Fatalf("profile default precedence failed, got %s", runtime.Profile)
 	}
 }
 

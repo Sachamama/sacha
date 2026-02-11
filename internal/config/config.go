@@ -23,6 +23,7 @@ func DefaultService() string {
 type Config struct {
 	DefaultProfile string `json:"defaultProfile,omitempty"`
 	DefaultRegion  string `json:"defaultRegion,omitempty"`
+	LastProfile    string `json:"lastProfile,omitempty"`
 	LastRegion     string `json:"lastRegion,omitempty"`
 	LastService    string `json:"lastService,omitempty"`
 }
@@ -106,12 +107,14 @@ func Save(path string, cfg *Config) error {
 func Resolve(flags Flags, env Env, cfg *Config) RuntimeConfig {
 	result := DefaultRuntime()
 
-	// Profile
+	// Profile: CLI > env > last used > default
 	switch {
 	case flags.Profile != "":
 		result.Profile = flags.Profile
 	case env.Profile != "":
 		result.Profile = env.Profile
+	case cfg != nil && cfg.LastProfile != "":
+		result.Profile = cfg.LastProfile
 	case cfg != nil && cfg.DefaultProfile != "":
 		result.Profile = cfg.DefaultProfile
 	}

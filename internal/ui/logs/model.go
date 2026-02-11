@@ -308,9 +308,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				val := strings.TrimSpace(m.highlightInput.Value())
 				if val == "" {
 					m.highlightFields = nil
+					m.filterByHL = false
 				} else {
 					m.highlightFields = strings.Fields(val)
 				}
+				m.eventCursor = 0
 				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 				m.ensureEventCursorVisible()
 				return m, nil

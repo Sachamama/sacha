@@ -128,6 +128,15 @@ func (m Model) renderTail() string {
 		return m.renderGroupDetails()
 	}
 	header := titleStyle.Render("Logs")
+	if evts := m.filteredEvents(); len(evts) > 0 {
+		minTime := evts[0].Timestamp
+		for _, e := range evts[1:] {
+			if e.Timestamp.Before(minTime) {
+				minTime = e.Timestamp
+			}
+		}
+		header += "  " + dimText.Render(fmt.Sprintf("since %s", minTime.Format("15:04:05")))
+	}
 	if len(m.highlightFields) > 0 {
 		hlText := strings.Join(m.highlightFields, " ")
 		if m.filterByHL {
@@ -252,7 +261,7 @@ func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bo
 	}
 
 	// Calculate column widths
-	timeWidth := 12 // enough for "+XXmXXs" or "HH:MM:SS"
+	timeWidth := 8 // enough for "HH:MM:SS" or "+XXmXXs"
 	groupWidth := 20
 	separators := 6 // " │ " twice
 	pointer := 1    // "▶" or " "

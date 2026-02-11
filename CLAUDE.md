@@ -338,6 +338,7 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 ### Global Keys
 - `r` - Change region
 - `s` - Change service
+- `ctrl+r` - Refresh current view (reload from AWS)
 - `ctrl+c` - Quit
 
 ### CloudWatch Logs (`internal/ui/logs/`)
@@ -353,7 +354,8 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - `d` - Delete selected log groups (shows confirmation prompt)
 - `R` - Set retention policy on selected groups (opens retention picker: 1d, 3d, 5d, 7d, 14d, 30d, 60d, 90d, 1y, never)
 - `t` - Start tailing selected groups
-- StatusHelp text (non-tailing): `↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail`
+- `y` - Copy log group name
+- StatusHelp text (non-tailing): `↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail, y copy, ctrl+r refresh`
 
 **Tailing View**
 - Split-pane mode: left panel shows groups list, right panel shows tail output
@@ -419,12 +421,14 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - `↑/↓` or `j/k` - Navigate (lazy loads more tables near end)
 - `/` - Search/filter
 - `enter` - Open table (scan items)
+- `A` - Load all remaining tables
 - `y` - Copy table ARN
 
 **Items View (inside table)**
 - `↑/↓` or `j/k` - Navigate (lazy loads more items near end)
 - `/` - Search/filter items by value
 - `enter` or `space` - Expand selected item (popup with full attribute details)
+- `A` - Load all remaining items
 - `y` - Copy table ARN
 - `esc/backspace/h` - Go back to tables list
 
@@ -440,6 +444,7 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - `↑/↓` or `j/k` - Navigate (lazy loads more functions near end)
 - `/` - Search/filter by name or runtime
 - `enter` or `space` - Expand selected function (popup with full details, env vars, layers)
+- `A` - Load all remaining functions
 - `y` - Copy function ARN
 
 **Expanded Function Popup**
@@ -489,6 +494,7 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - `↑/↓` or `j/k` - Navigate (lazy loads more instances near end)
 - `/` - Search/filter by name, instance ID, type, state, or IP
 - `enter` or `space` - Expand instance details in popup (full metadata and tags)
+- `A` - Load all remaining instances
 - `y` - Copy instance ID
 
 **Expanded Instance Popup**

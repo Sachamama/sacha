@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/rs/zerolog"
@@ -131,7 +132,8 @@ func (m Model) View() string {
 func (m *Model) activateService(name string) error {
 	svc, ok := m.services[name]
 	if !ok {
-		return fmt.Errorf("unknown service %q", name)
+		valid := serviceNames(m.services)
+		return fmt.Errorf("unknown service %q; available services: %s", name, strings.Join(valid, ", "))
 	}
 	model, err := svc.Init(context.Background(), m.cfg, awsx.ServiceOptions{
 		Logger: newLoggerAdapter(m.logger),

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -53,7 +55,7 @@ func newRootCmd() *cobra.Command {
 	cmd.SetVersionTemplate(version.Info() + "\n")
 	cmd.PersistentFlags().StringVar(&flags.profile, "profile", "", "AWS profile")
 	cmd.PersistentFlags().StringVar(&flags.region, "region", "", "AWS region")
-	cmd.PersistentFlags().StringVar(&flags.service, "service", "", "AWS service (cloudwatch-logs)")
+	cmd.PersistentFlags().StringVar(&flags.service, "service", "", "AWS service (cloudwatch-logs, s3, dynamodb, ec2, lambda, sqs, ssm)")
 	cmd.PersistentFlags().StringVar(&flags.endpoint, "endpoint", "", "custom AWS endpoint URL (e.g. http://localhost:4566)")
 	cmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "enable verbose logging")
 
@@ -105,6 +107,13 @@ func run(ctx context.Context, flags cliFlags) error {
 		"ssm":             ssmui.SSMService{},
 	}
 
+	if _, ok := services[runtime.Service]; !ok {
+		if flags.service != "" {
+			return fmt.Errorf("unknown service %q; available services: %s", runtime.Service, sortedServiceNames(services))
+		}
+		runtime.Service = config.DefaultService()
+	}
+
 	appModel, err := appui.NewModel(loader, services, runtime, awsCfg, &log.Logger)
 	if err != nil {
 		return err
@@ -123,4 +132,13 @@ func run(ctx context.Context, flags cliFlags) error {
 	fileCfg.LastRegion = runtime.Region
 	fileCfg.LastService = runtime.Service
 	return config.Save(cfgPath, fileCfg)
+}
+
+func sortedServiceNames(services map[string]awsx.Service) string {
+	names := make([]string, 0, len(services))
+	for name := range services {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }

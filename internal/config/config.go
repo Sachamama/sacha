@@ -14,6 +14,11 @@ const (
 	configFileName = "config.json"
 )
 
+// DefaultService returns the default service name used when no override is provided.
+func DefaultService() string {
+	return defaultService
+}
+
 // Config represents the persisted user configuration.
 type Config struct {
 	DefaultProfile string `json:"defaultProfile,omitempty"`

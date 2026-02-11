@@ -89,6 +89,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusLine = fmt.Sprintf("Loaded %d functions", len(m.functions))
 		return m, m.loadMoreIfNeeded()
 
+	case allFunctionsLoadedMsg:
+		m.loadingMore = false
+		if msg.err != nil {
+			m.statusLine = msg.err.Error()
+			return m, nil
+		}
+		m.functions = append(m.functions, msg.functions...)
+		m.nextToken = nil
+		m.statusLine = fmt.Sprintf("Loaded all %d functions", len(m.functions))
+		return m, nil
+
 	case functionDetailsMsg:
 		if msg.err != nil {
 			return m, nil
@@ -177,6 +188,21 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			_ = clipboard.WriteAll(arn)
 			m.statusLine = "Copied: " + arn
 		}
+	case "A":
+		if m.nextToken != nil && !m.loadingMore {
+			m.loadingMore = true
+			m.statusLine = "Loading all functions..."
+			return m, m.loadAllFunctionsCmd()
+		}
+	case "ctrl+r":
+		m.functions = nil
+		m.nextToken = nil
+		m.cursor = 0
+		m.listOffset = 0
+		m.details = nil
+		m.loading = true
+		m.statusLine = "Refreshing..."
+		return m, m.loadFunctionsCmd()
 	}
 
 	return m, nil
@@ -333,6 +359,23 @@ func (m Model) loadMoreFunctionsCmd() tea.Cmd {
 	}
 }
 
+func (m Model) loadAllFunctionsCmd() tea.Cmd {
+	token := m.nextToken
+	return func() tea.Msg {
+		ctx := context.Background()
+		var all []lambda.Function
+		for token != nil {
+			functions, next, err := m.client.ListFunctions(ctx, token)
+			if err != nil {
+				return allFunctionsLoadedMsg{err: err}
+			}
+			all = append(all, functions...)
+			token = next
+		}
+		return allFunctionsLoadedMsg{functions: all}
+	}
+}
+
 func (m Model) fetchDetailsCmd() tea.Cmd {
 	name := m.currentFunctionName()
 	if name == "" {
@@ -358,5 +401,5 @@ func (m Model) StatusHelp() string {
 	if m.searching {
 		return "enter/esc close search"
 	}
-	return "↑↓ move, / search, enter expand, y copy ARN"
+	return "↑↓ move, / search, enter expand, A load all, y copy ARN, ctrl+r refresh"
 }

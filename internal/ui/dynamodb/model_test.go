@@ -298,7 +298,7 @@ func TestItemsLoadedWithPagination(t *testing.T) {
 	if m.lastEvaluatedKey == nil {
 		t.Error("expected lastEvaluatedKey to be set")
 	}
-	if m.statusLine != "Loaded 1 items (more available)" {
+	if m.statusLine != "Loaded 1 items (loading more...)" {
 		t.Errorf("unexpected status: %q", m.statusLine)
 	}
 }
@@ -486,14 +486,14 @@ func TestStatusHelp(t *testing.T) {
 
 	// Table list view
 	help := m.StatusHelp()
-	if help != "↑↓ move, / search, enter open, A load all, pgup/pgdn details, y copy ARN, ctrl+r refresh" {
+	if help != "↑↓ move, / search, enter open, pgup/pgdn details, y copy ARN, ctrl+r refresh" {
 		t.Errorf("unexpected help: %q", help)
 	}
 
 	// Items view
 	m.table = "test"
 	help = m.StatusHelp()
-	if help != "↑↓ move, / search, enter expand, A load all, pgup/pgdn details, y copy ARN, ctrl+r refresh, esc/h back" {
+	if help != "↑↓ move, / search, enter expand, pgup/pgdn details, y copy ARN, ctrl+r refresh, esc/h back" {
 		t.Errorf("unexpected help: %q", help)
 	}
 

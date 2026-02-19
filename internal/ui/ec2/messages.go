@@ -16,8 +16,3 @@ type moreInstancesLoadedMsg struct {
 	err       error
 }
 
-// allInstancesLoadedMsg is sent when all remaining instances are loaded.
-type allInstancesLoadedMsg struct {
-	instances []ec2.Instance
-	err       error
-}

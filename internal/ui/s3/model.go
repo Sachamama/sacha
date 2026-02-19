@@ -170,11 +170,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clampCursor()
 		}
 		if m.nextToken != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(msg.objects))
+			m.statusLine = fmt.Sprintf("Loaded %d items (loading more...)", len(msg.objects))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(msg.objects))
 		}
-		return m, m.fetchDetailsCmd()
+		return m, tea.Batch(m.fetchDetailsCmd(), m.loadMoreIfNeeded())
 
 	case moreObjectsLoadedMsg:
 		m.loadingMore = false
@@ -185,28 +185,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.objects = append(m.objects, msg.objects...)
 		m.nextToken = msg.nextToken
 		if m.nextToken != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(m.objects))
+			m.statusLine = fmt.Sprintf("Loaded %d items (loading more...)", len(m.objects))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(m.objects))
 		}
 		return m, m.loadMoreIfNeeded()
-
-	case allObjectsLoadedMsg:
-		m.loadingMore = false
-		if msg.err != nil {
-			m.statusLine = msg.err.Error()
-			return m, nil
-		}
-		m.objects = append(m.objects, msg.objects...)
-		m.nextToken = nil
-		// Select all non-prefix objects
-		for _, obj := range m.objects {
-			if !obj.IsPrefix {
-				m.selected[obj.Key] = true
-			}
-		}
-		m.statusLine = fmt.Sprintf("Selected all %d files", len(m.selected))
-		return m, nil
 
 	case detailsLoadedMsg:
 		if msg.err != nil {
@@ -328,17 +311,6 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.toggleSelection()
 	case "a":
 		m.toggleAll()
-	case "A":
-		// Load all remaining pages and select all
-		if m.bucket != "" && !m.loadingMore {
-			if m.nextToken != nil {
-				m.loadingMore = true
-				m.statusLine = "Loading all items..."
-				return m, m.loadAllCmd()
-			}
-			// No more pages, just select all
-			m.selectAll()
-		}
 	case "/":
 		m.searching = true
 		m.search.SetValue("")
@@ -635,17 +607,6 @@ func (m *Model) toggleAll() {
 	}
 }
 
-func (m *Model) selectAll() {
-	if m.bucket == "" {
-		return
-	}
-	// Select all loaded objects (including folders)
-	for _, obj := range m.objects {
-		m.selected[obj.Key] = true
-	}
-	m.statusLine = fmt.Sprintf("Selected all %d items", len(m.selected))
-}
-
 func (m Model) selectedCount() int {
 	return len(m.selected)
 }
@@ -672,19 +633,11 @@ func (m Model) getS3URI() string {
 	return fmt.Sprintf("s3://%s/%s", m.bucket, objects[m.cursor].Key)
 }
 
-// loadMoreIfNeeded loads the next page if a filter is active and the filtered
-// results don't fill the visible list height.
 func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	if m.bucket == "" {
 		return nil // buckets are not paginated
 	}
-	if m.search.Value() == "" {
-		return nil
-	}
 	if m.nextToken == nil || m.loadingMore {
-		return nil
-	}
-	if len(m.filteredObjects()) >= m.listHeight() {
 		return nil
 	}
 	m.loadingMore = true
@@ -751,25 +704,6 @@ func (m Model) loadMoreCmd() tea.Cmd {
 			return moreObjectsLoadedMsg{err: err}
 		}
 		return moreObjectsLoadedMsg{objects: objects, nextToken: nextToken}
-	}
-}
-
-func (m Model) loadAllCmd() tea.Cmd {
-	bucket := m.bucket
-	prefix := m.prefix
-	token := m.nextToken
-	return func() tea.Msg {
-		ctx := context.Background()
-		var all []s3.Object
-		for token != nil {
-			objects, next, err := m.client.ListObjects(ctx, bucket, prefix, token)
-			if err != nil {
-				return allObjectsLoadedMsg{err: err}
-			}
-			all = append(all, objects...)
-			token = next
-		}
-		return allObjectsLoadedMsg{objects: all}
 	}
 }
 
@@ -971,5 +905,5 @@ func (m Model) StatusHelp() string {
 		return "↑↓ move, / search, enter open, y copy, ctrl+r refresh"
 	}
 	// Inside bucket
-	return "↑↓ move, / search, space select, a all, A load+select all, d download, p preview, y copy, ctrl+r refresh, esc back"
+	return "↑↓ move, / search, space select, a all, d download, p preview, y copy, ctrl+r refresh, esc back"
 }

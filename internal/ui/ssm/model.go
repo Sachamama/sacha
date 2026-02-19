@@ -129,11 +129,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clampCursor()
 		}
 		if m.nextToken != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(msg.params))
+			m.statusLine = fmt.Sprintf("Loaded %d items (loading more...)", len(msg.params))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(msg.params))
 		}
-		return m, m.fetchDetailsCmd()
+		return m, tea.Batch(m.fetchDetailsCmd(), m.loadMoreIfNeeded())
 
 	case moreParametersLoadedMsg:
 		m.loadingMore = false
@@ -146,7 +146,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sortParameters(m.params)
 		m.updateCache()
 		if m.nextToken != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(m.params))
+			m.statusLine = fmt.Sprintf("Loaded %d items (loading more...)", len(m.params))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(m.params))
 		}
@@ -437,16 +437,8 @@ func (m Model) filteredParams() []ssm.Parameter {
 	return out
 }
 
-// loadMoreIfNeeded loads the next page if a filter is active and the filtered
-// results don't fill the visible list height.
 func (m *Model) loadMoreIfNeeded() tea.Cmd {
-	if m.search.Value() == "" {
-		return nil
-	}
 	if m.nextToken == nil || m.loadingMore {
-		return nil
-	}
-	if len(m.filteredParams()) >= m.listHeight() {
 		return nil
 	}
 	m.loadingMore = true

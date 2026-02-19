@@ -25,12 +25,6 @@ type moreObjectsLoadedMsg struct {
 	err       error
 }
 
-// allObjectsLoadedMsg is sent when all remaining objects are loaded.
-type allObjectsLoadedMsg struct {
-	objects []s3.Object
-	err     error
-}
-
 // detailsLoadedMsg is sent when object details are fetched.
 type detailsLoadedMsg struct {
 	details *s3.ObjectDetails

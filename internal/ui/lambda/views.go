@@ -95,7 +95,7 @@ func (m Model) renderFunctionList(b *strings.Builder, visibleHeight int) {
 		// to avoid breaking ANSI escape codes during truncation.
 		line := fmt.Sprintf("  %s  %s", f.Name, runtime)
 
-		maxWidth := m.width/2 - 6
+		maxWidth := m.width*2/5 - 6
 		truncated := false
 		if maxWidth > 0 && len(line) > maxWidth {
 			line = line[:maxWidth-3] + "..."

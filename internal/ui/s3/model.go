@@ -363,8 +363,8 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
-	// Split width for two panels
-	leftWidth := m.width / 2
+	// Split width for two panels (40/60)
+	leftWidth := m.width * 2 / 5
 	rightWidth := m.width - leftWidth
 	bodyHeight := m.bodyHeight()
 
@@ -429,7 +429,7 @@ func (m *Model) updateViewportSize() {
 	// Account for border (2) + padding (2) per panel
 	panelChrome := 4
 	availableWidth := m.width - (panelChrome * 2)
-	rightWidth := availableWidth - availableWidth/2
+	rightWidth := availableWidth - availableWidth*2/5
 	innerWidth := max(rightWidth, 20)
 	contentHeight := m.bodyHeight() - 2
 	innerHeight := max(contentHeight-10, 1) // space for details above

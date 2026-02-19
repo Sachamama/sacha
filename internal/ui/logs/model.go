@@ -618,8 +618,8 @@ func (m Model) View() string {
 		// Fullscreen tail mode
 		view = panelStyle.Width(m.width - 2).Height(bodyHeight).Render(m.renderTail())
 	} else {
-		// Split width for two panels
-		leftWidth := m.width / 2
+		// Split width for two panels (40/60)
+		leftWidth := m.width * 2 / 5
 		rightWidth := m.width - leftWidth
 
 		// Highlight focused panel
@@ -883,7 +883,7 @@ func (m *Model) setViewportSize(bodyHeight int) {
 	if m.fullscreen {
 		innerWidth = m.width - 4 // account for border/padding
 	} else {
-		rightWidth := m.width - m.width/2
+		rightWidth := m.width - m.width*2/5
 		innerWidth = rightWidth - 4 // account for border/padding
 	}
 	if innerWidth < 20 {

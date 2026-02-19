@@ -82,6 +82,9 @@ func NewModel(client *sqs.Client, c *cache.Cache, cacheKey cache.Key) Model {
 
 // Init initializes the model by loading queues.
 func (m Model) Init() tea.Cmd {
+	if len(m.queues) > 0 {
+		return nil
+	}
 	return m.loadQueuesCmd()
 }
 

@@ -72,6 +72,9 @@ func NewModel(client *ec2.Client, c *cache.Cache, cacheKey cache.Key) Model {
 
 // Init initializes the model by loading instances.
 func (m Model) Init() tea.Cmd {
+	if len(m.instances) > 0 {
+		return nil
+	}
 	return m.loadInstancesCmd()
 }
 

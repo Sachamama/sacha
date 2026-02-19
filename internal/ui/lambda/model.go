@@ -75,6 +75,9 @@ func NewModel(client *lambda.Client, c *cache.Cache, cacheKey cache.Key) Model {
 
 // Init initializes the model by loading functions.
 func (m Model) Init() tea.Cmd {
+	if len(m.functions) > 0 {
+		return nil
+	}
 	return m.loadFunctionsCmd()
 }
 

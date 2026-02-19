@@ -15,4 +15,3 @@ type moreInstancesLoadedMsg struct {
 	nextToken *string
 	err       error
 }
-

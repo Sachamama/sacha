@@ -35,4 +35,3 @@ type moreItemsLoadedMsg struct {
 	result *dynamodb.ScanResult
 	err    error
 }
-

@@ -3,12 +3,14 @@ package sqs
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/sqs"
 )
 
@@ -24,6 +26,10 @@ type Model struct {
 	// Pagination
 	nextToken   *string
 	loadingMore bool
+
+	// Cache
+	cache    *cache.Cache
+	cacheKey cache.Key
 
 	// Right pane - queue attributes
 	attrs *sqs.QueueAttributes
@@ -49,17 +55,29 @@ type Model struct {
 }
 
 // NewModel creates a new SQS browser model.
-func NewModel(client *sqs.Client) Model {
+func NewModel(client *sqs.Client, c *cache.Cache, cacheKey cache.Key) Model {
 	ti := textinput.New()
 	ti.Placeholder = "filter"
 	ti.Prompt = "/ "
-	return Model{
+	m := Model{
 		client:          client,
 		search:          ti,
 		loading:         true,
 		expandedQueue:   -1,
 		expandedMessage: -1,
+		cache:           c,
+		cacheKey:        cacheKey,
 	}
+	if c != nil {
+		if items, ok := c.Get(cacheKey); ok {
+			if queues, ok := items.([]sqs.Queue); ok && len(queues) > 0 {
+				m.queues = queues
+				m.loading = false
+				m.statusLine = fmt.Sprintf("%d queues (cached)", len(queues))
+			}
+		}
+	}
+	return m
 }
 
 // Init initializes the model by loading queues.
@@ -84,6 +102,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.nextToken = msg.nextToken
 		m.cursor = 0
 		m.attrs = nil
+		sortQueues(m.queues)
+		m.updateCache()
 		if m.nextToken != nil {
 			m.statusLine = fmt.Sprintf("Loaded %d queues (more available)", len(msg.queues))
 		} else {
@@ -99,6 +119,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.queues = append(m.queues, msg.queues...)
 		m.nextToken = msg.nextToken
+		sortQueues(m.queues)
+		m.updateCache()
 		if m.nextToken != nil {
 			m.statusLine = fmt.Sprintf("Loaded %d queues (more available)", len(m.queues))
 		} else {
@@ -287,6 +309,9 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, m.peekMessagesCmd(items[m.cursor].URL)
 			}
 		} else {
+			if m.cache != nil {
+				m.cache.Delete(m.cacheKey)
+			}
 			m.queues = nil
 			m.nextToken = nil
 			m.cursor = 0
@@ -487,6 +512,20 @@ func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	}
 	m.loadingMore = true
 	return m.loadMoreCmd()
+}
+
+// updateCache stores the current queues in the cache.
+func (m *Model) updateCache() {
+	if m.cache != nil {
+		m.cache.Set(m.cacheKey, m.queues)
+	}
+}
+
+// sortQueues sorts queues by Name (case-insensitive).
+func sortQueues(queues []sqs.Queue) {
+	sort.Slice(queues, func(i, j int) bool {
+		return strings.ToLower(queues[i].Name) < strings.ToLower(queues[j].Name)
+	})
 }
 
 // Commands

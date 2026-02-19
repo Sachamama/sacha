@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -12,6 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/s3"
 )
 
@@ -55,6 +57,10 @@ type Model struct {
 	previewErr  string
 	showPreview bool
 
+	// Cache
+	cache    *cache.Cache
+	cacheKey cache.Key
+
 	// UI
 	width      int
 	height     int
@@ -80,16 +86,28 @@ type Model struct {
 }
 
 // NewModel creates a new S3 browser model.
-func NewModel(client *s3.Client) Model {
+func NewModel(client *s3.Client, c *cache.Cache, cacheKey cache.Key) Model {
 	ti := textinput.New()
 	ti.Placeholder = "filter"
 	ti.Prompt = "/ "
-	return Model{
+	m := Model{
 		client:   client,
 		selected: make(map[string]bool),
 		search:   ti,
 		loading:  true,
+		cache:    c,
+		cacheKey: cacheKey,
 	}
+	if c != nil {
+		if items, ok := c.Get(cacheKey); ok {
+			if buckets, ok := items.([]s3.Bucket); ok && len(buckets) > 0 {
+				m.buckets = buckets
+				m.loading = false
+				m.statusLine = fmt.Sprintf("%d buckets (cached)", len(buckets))
+			}
+		}
+	}
+	return m
 }
 
 // Init initializes the model by loading buckets.
@@ -112,6 +130,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.buckets = msg.buckets
+		sortBuckets(m.buckets)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded %d buckets", len(msg.buckets))
 		return m, m.fetchBucketRegionCmd()
 
@@ -336,6 +356,9 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "ctrl+r":
 		if m.bucket == "" {
+			if m.cache != nil {
+				m.cache.Delete(m.cacheKey)
+			}
 			m.buckets = nil
 			m.cursor = 0
 			m.listOffset = 0
@@ -663,6 +686,20 @@ func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	}
 	m.loadingMore = true
 	return m.loadMoreCmd()
+}
+
+// updateCache stores the current buckets in the cache.
+func (m *Model) updateCache() {
+	if m.cache != nil {
+		m.cache.Set(m.cacheKey, m.buckets)
+	}
+}
+
+// sortBuckets sorts buckets by Name (case-insensitive).
+func sortBuckets(buckets []s3.Bucket) {
+	sort.Slice(buckets, func(i, j int) bool {
+		return strings.ToLower(buckets[i].Name) < strings.ToLower(buckets[j].Name)
+	})
 }
 
 // Commands

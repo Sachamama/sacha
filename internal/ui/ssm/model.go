@@ -3,12 +3,14 @@ package ssm
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/ssm"
 )
 
@@ -37,6 +39,10 @@ type Model struct {
 	// Right pane - parameter details (fetched with decryption)
 	details *ssm.Parameter
 
+	// Cache
+	cache    *cache.Cache
+	cacheKey cache.Key
+
 	// Expanded parameter popup
 	expandedParam int            // index of expanded param, -1 if none
 	expandedView  viewport.Model // viewport for scrolling expanded content
@@ -55,16 +61,29 @@ type Model struct {
 }
 
 // NewModel creates a new SSM browser model.
-func NewModel(client *ssm.Client) Model {
+func NewModel(client *ssm.Client, c *cache.Cache, cacheKey cache.Key) Model {
 	ti := textinput.New()
 	ti.Placeholder = "filter"
 	ti.Prompt = "/ "
-	return Model{
+	m := Model{
 		client:        client,
 		search:        ti,
 		loading:       true,
 		expandedParam: -1,
+		cache:         c,
+		cacheKey:      cacheKey,
 	}
+	// Only populate from cache at root level (no path segments)
+	if c != nil && len(m.path) == 0 {
+		if items, ok := c.Get(cacheKey); ok {
+			if params, ok := items.([]ssm.Parameter); ok && len(params) > 0 {
+				m.params = params
+				m.loading = false
+				m.statusLine = fmt.Sprintf("%d items (cached)", len(params))
+			}
+		}
+	}
+	return m
 }
 
 // Init initializes the model by loading top-level paths.
@@ -95,6 +114,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.params = msg.params
 		m.nextToken = msg.nextToken
+		sortParameters(m.params)
+		m.updateCache()
 		m.cursor = 0
 		m.details = nil
 		// Restore scroll position if navigating back
@@ -119,6 +140,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.params = append(m.params, msg.params...)
 		m.nextToken = msg.nextToken
+		sortParameters(m.params)
+		m.updateCache()
 		if m.nextToken != nil {
 			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(m.params))
 		} else {
@@ -217,6 +240,9 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.statusLine = "Copied: " + text
 		}
 	case "ctrl+r":
+		if m.cache != nil {
+			m.cache.Delete(m.cacheKey)
+		}
 		m.params = nil
 		m.nextToken = nil
 		m.cursor = 0
@@ -422,6 +448,24 @@ func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	}
 	m.loadingMore = true
 	return m.loadMoreCmd()
+}
+
+// updateCache stores the current params in the cache (only at root level).
+func (m *Model) updateCache() {
+	if m.cache != nil && len(m.path) == 0 {
+		m.cache.Set(m.cacheKey, m.params)
+	}
+}
+
+// sortParameters sorts parameters with prefixes (IsPrefix=true) first, then by Name case-insensitive.
+func sortParameters(params []ssm.Parameter) {
+	sort.Slice(params, func(i, j int) bool {
+		// Prefixes (folders) come first
+		if params[i].IsPrefix != params[j].IsPrefix {
+			return params[i].IsPrefix
+		}
+		return strings.ToLower(params[i].Name) < strings.ToLower(params[j].Name)
+	})
 }
 
 // Commands

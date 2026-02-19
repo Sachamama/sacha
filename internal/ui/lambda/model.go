@@ -3,6 +3,7 @@ package lambda
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -10,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/lambda"
 )
 
@@ -33,6 +35,10 @@ type Model struct {
 	listOffset  int
 	loadingMore bool
 
+	// Cache
+	cache    *cache.Cache
+	cacheKey cache.Key
+
 	// UI
 	width      int
 	height     int
@@ -43,16 +49,28 @@ type Model struct {
 }
 
 // NewModel creates a new Lambda browser model.
-func NewModel(client *lambda.Client) Model {
+func NewModel(client *lambda.Client, c *cache.Cache, cacheKey cache.Key) Model {
 	ti := textinput.New()
 	ti.Placeholder = "filter"
 	ti.Prompt = "/ "
-	return Model{
+	m := Model{
 		client:       client,
 		search:       ti,
 		loading:      true,
 		expandedFunc: -1,
+		cache:        c,
+		cacheKey:     cacheKey,
 	}
+	if c != nil {
+		if items, ok := c.Get(cacheKey); ok {
+			if functions, ok := items.([]lambda.Function); ok && len(functions) > 0 {
+				m.functions = functions
+				m.loading = false
+				m.statusLine = fmt.Sprintf("%d functions (cached)", len(functions))
+			}
+		}
+	}
+	return m
 }
 
 // Init initializes the model by loading functions.
@@ -75,6 +93,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.functions = msg.functions
 		m.nextToken = msg.nextToken
+		sortFunctions(m.functions)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded %d functions", len(msg.functions))
 		return m, m.fetchDetailsCmd()
 
@@ -86,6 +106,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.functions = append(m.functions, msg.functions...)
 		m.nextToken = msg.nextToken
+		sortFunctions(m.functions)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded %d functions", len(m.functions))
 		return m, m.loadMoreIfNeeded()
 
@@ -97,6 +119,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.functions = append(m.functions, msg.functions...)
 		m.nextToken = nil
+		sortFunctions(m.functions)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded all %d functions", len(m.functions))
 		return m, nil
 
@@ -195,6 +219,9 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.loadAllFunctionsCmd()
 		}
 	case "ctrl+r":
+		if m.cache != nil {
+			m.cache.Delete(m.cacheKey)
+		}
 		m.functions = nil
 		m.nextToken = nil
 		m.cursor = 0
@@ -338,6 +365,20 @@ func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	}
 	m.loadingMore = true
 	return m.loadMoreFunctionsCmd()
+}
+
+// updateCache stores the current functions in the cache.
+func (m *Model) updateCache() {
+	if m.cache != nil {
+		m.cache.Set(m.cacheKey, m.functions)
+	}
+}
+
+// sortFunctions sorts functions by Name (case-insensitive).
+func sortFunctions(functions []lambda.Function) {
+	sort.Slice(functions, func(i, j int) bool {
+		return strings.ToLower(functions[i].Name) < strings.ToLower(functions[j].Name)
+	})
 }
 
 // Commands

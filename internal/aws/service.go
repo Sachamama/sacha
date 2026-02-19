@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/sachamama/sacha/internal/cache"
 )
 
 // Service defines a pluggable AWS-backed UI module.
@@ -16,7 +17,9 @@ type Service interface {
 
 // ServiceOptions contains dependencies shared with services.
 type ServiceOptions struct {
-	Logger ServiceLogger
+	Logger    ServiceLogger
+	Cache     *cache.Cache
+	AccountID string
 }
 
 // ServiceLogger is a narrow logging interface used by services.

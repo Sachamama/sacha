@@ -3,6 +3,7 @@ package ec2
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -10,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/ec2"
 )
 
@@ -30,6 +32,10 @@ type Model struct {
 	listOffset  int
 	loadingMore bool
 
+	// Cache
+	cache    *cache.Cache
+	cacheKey cache.Key
+
 	// UI
 	width      int
 	height     int
@@ -40,16 +46,28 @@ type Model struct {
 }
 
 // NewModel creates a new EC2 browser model.
-func NewModel(client *ec2.Client) Model {
+func NewModel(client *ec2.Client, c *cache.Cache, cacheKey cache.Key) Model {
 	ti := textinput.New()
 	ti.Placeholder = "filter"
 	ti.Prompt = "/ "
-	return Model{
+	m := Model{
 		client:       client,
 		search:       ti,
 		loading:      true,
 		expandedInst: -1,
+		cache:        c,
+		cacheKey:     cacheKey,
 	}
+	if c != nil {
+		if items, ok := c.Get(cacheKey); ok {
+			if instances, ok := items.([]ec2.Instance); ok && len(instances) > 0 {
+				m.instances = instances
+				m.loading = false
+				m.statusLine = fmt.Sprintf("%d instances (cached)", len(instances))
+			}
+		}
+	}
+	return m
 }
 
 // Init initializes the model by loading instances.
@@ -72,6 +90,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.instances = msg.instances
 		m.nextToken = msg.nextToken
+		sortInstances(m.instances)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded %d instances", len(msg.instances))
 		return m, nil
 
@@ -83,6 +103,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.instances = append(m.instances, msg.instances...)
 		m.nextToken = msg.nextToken
+		sortInstances(m.instances)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded %d instances", len(m.instances))
 		return m, m.loadMoreIfNeeded()
 
@@ -94,6 +116,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.instances = append(m.instances, msg.instances...)
 		m.nextToken = nil
+		sortInstances(m.instances)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded all %d instances", len(m.instances))
 		return m, nil
 
@@ -180,6 +204,9 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.loadAllInstancesCmd()
 		}
 	case "ctrl+r":
+		if m.cache != nil {
+			m.cache.Delete(m.cacheKey)
+		}
 		m.instances = nil
 		m.nextToken = nil
 		m.cursor = 0
@@ -308,6 +335,30 @@ func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	}
 	m.loadingMore = true
 	return m.loadMoreInstancesCmd()
+}
+
+// updateCache stores the current instances in the cache.
+func (m *Model) updateCache() {
+	if m.cache != nil {
+		m.cache.Set(m.cacheKey, m.instances)
+	}
+}
+
+// sortInstances sorts instances by Name (empty names sort last).
+func sortInstances(instances []ec2.Instance) {
+	sort.Slice(instances, func(i, j int) bool {
+		a, b := instances[i].Name, instances[j].Name
+		if a == "" && b == "" {
+			return instances[i].InstanceID < instances[j].InstanceID
+		}
+		if a == "" {
+			return false
+		}
+		if b == "" {
+			return true
+		}
+		return strings.ToLower(a) < strings.ToLower(b)
+	})
 }
 
 // Commands

@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
-	awsx "github.com/sachamama/sacha/internal/aws"
-	"github.com/sachamama/sacha/internal/logs"
-
 	tea "github.com/charmbracelet/bubbletea"
+	awsx "github.com/sachamama/sacha/internal/aws"
+	"github.com/sachamama/sacha/internal/cache"
+	"github.com/sachamama/sacha/internal/logs"
 )
 
 // CloudWatchLogsService wires the CloudWatch Logs UI to the service registry.
@@ -27,6 +27,11 @@ func (CloudWatchLogsService) Init(ctx context.Context, cfg sdkaws.Config, opts a
 		return nil, fmt.Errorf("region must be set before loading CloudWatch Logs")
 	}
 	client := logs.NewClient(cfg)
-	model := NewModel(client)
+	cacheKey := cache.Key{
+		AccountID: opts.AccountID,
+		Region:    cfg.Region,
+		Service:   "cloudwatch-logs",
+	}
+	model := NewModel(client, opts.Cache, cacheKey)
 	return model, nil
 }

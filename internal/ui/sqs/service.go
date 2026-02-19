@@ -6,6 +6,7 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	tea "github.com/charmbracelet/bubbletea"
 	awsx "github.com/sachamama/sacha/internal/aws"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/sqs"
 )
 
@@ -25,6 +26,11 @@ func (SQSService) Title() string {
 // Init initializes the SQS browser model.
 func (SQSService) Init(ctx context.Context, cfg sdkaws.Config, opts awsx.ServiceOptions) (tea.Model, error) {
 	client := sqs.NewClient(cfg)
-	model := NewModel(client)
+	cacheKey := cache.Key{
+		AccountID: opts.AccountID,
+		Region:    cfg.Region,
+		Service:   "sqs",
+	}
+	model := NewModel(client, opts.Cache, cacheKey)
 	return model, nil
 }

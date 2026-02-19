@@ -122,6 +122,7 @@ type Model struct {
 	expandedEvent int            // index of expanded event, -1 if none
 	scrollX       int            // horizontal scroll offset for fullscreen
 	expandedView  viewport.Model // viewport for expanded event
+	autoScroll    bool           // auto-scroll to bottom on new events
 
 	// Highlight/filter: jq-style field paths like ".level", ".message"
 	highlightFields []string        // fields to highlight in log output
@@ -388,6 +389,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.tailing && m.focus == panelTail {
 				if m.eventCursor > 0 {
 					m.eventCursor--
+					m.autoScroll = false
 					m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 					m.ensureEventCursorVisible()
 				}
@@ -403,6 +405,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.eventCursor++
 					m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 					m.ensureEventCursorVisible()
+				}
+				if m.eventCursor >= len(m.filteredEvents())-1 {
+					m.autoScroll = true
 				}
 			} else {
 				if m.cursor < len(m.filteredGroups())-1 {
@@ -433,6 +438,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.tailing && len(m.selectedGroups()) > 0 {
 					m.events = nil
 					m.eventCursor = 0
+					m.autoScroll = true
 					m.tailStart = time.Now().Add(-defaultTailWindow)
 					m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 					return m, m.pollTailCmd()
@@ -451,6 +457,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.tailing && len(m.selectedGroups()) > 0 {
 					m.events = nil
 					m.eventCursor = 0
+					m.autoScroll = true
 					m.tailStart = time.Now().Add(-defaultTailWindow)
 					m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
 					return m, m.pollTailCmd()
@@ -485,6 +492,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focus = panelTail
 				m.events = nil
 				m.eventCursor = 0
+				m.autoScroll = true
 				m.tailStart = time.Now().Add(-defaultTailWindow)
 				m.view = viewport.Model{}
 				m.setViewportSize(m.bodyHeight())
@@ -508,6 +516,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.fullscreen = false
 				m.focus = panelGroups
 				m.scrollX = 0
+				m.autoScroll = false
 				m.highlightFields = nil
 				m.filterByHL = false
 			}
@@ -536,6 +545,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.events = nil
 				m.eventCursor = 0
 				m.scrollX = 0
+				m.autoScroll = false
 				m.highlightFields = nil
 				m.filterByHL = false
 			}
@@ -567,22 +577,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if len(msg.events) > 0 {
-			wasAtEnd := len(m.events) == 0 || m.eventCursor >= len(m.events)-1
 			m.tailStart = msg.nextStart
 			m.events = append(m.events, msg.events...)
 			if len(m.events) > 1000 {
 				trimmed := len(m.events) - 1000
 				m.events = m.events[trimmed:]
-				if !wasAtEnd {
+				if !m.autoScroll {
 					m.eventCursor -= trimmed
 					if m.eventCursor < 0 {
 						m.eventCursor = 0
 					}
 				}
 			}
-			// Auto-scroll to latest events when cursor was at the end
+			// Auto-scroll to latest events when autoScroll is enabled
 			evts := m.filteredEvents()
-			if wasAtEnd {
+			if m.autoScroll {
 				m.eventCursor = len(evts) - 1
 			} else if m.eventCursor >= len(evts) {
 				m.eventCursor = len(evts) - 1

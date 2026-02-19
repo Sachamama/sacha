@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sacha - Keyboard-first AWS TUI</title>
-    <meta name="description" content="A keyboard-first AWS Terminal User Interface for browsing CloudWatch Logs, S3, DynamoDB, Lambda, SSM, and SQS without leaving your terminal.">
-    <meta name="keywords" content="AWS, TUI, Terminal, CloudWatch, S3, DynamoDB, Lambda, SSM, SQS, CLI, DevOps, Go">
+    <meta name="description" content="A keyboard-first AWS Terminal User Interface for browsing CloudWatch Logs, S3, DynamoDB, Lambda, SSM, SQS, and EC2 without leaving your terminal.">
+    <meta name="keywords" content="AWS, TUI, Terminal, CloudWatch, S3, DynamoDB, Lambda, SSM, SQS, EC2, CLI, DevOps, Go">
     <meta property="og:title" content="Sacha - Keyboard-first AWS TUI">
-    <meta property="og:description" content="Browse, search, and manage AWS resources directly from your terminal. Supports CloudWatch Logs, S3, DynamoDB, Lambda, SSM, and SQS.">
+    <meta property="og:description" content="Browse, search, and manage AWS resources directly from your terminal. Supports CloudWatch Logs, S3, DynamoDB, Lambda, SSM, SQS, and EC2.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://sachamama.github.io/sacha/">
     <meta property="og:image" content="https://sachamama.github.io/sacha/images/social.png">
@@ -20,33 +20,36 @@
     <link rel="icon" type="image/png" href="images/schamama-profile.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0e14;
-            --bg-secondary: #11151c;
-            --bg-tertiary: #1a1f2e;
-            --bg-card: #141820;
-            --text-primary: #e6edf3;
-            --text-secondary: #7d8590;
-            --text-muted: #484f58;
-            --accent: #58a6ff;
-            --accent-hover: #79b8ff;
-            --accent-glow: rgba(88, 166, 255, 0.15);
+            --bg-primary: #060a0e;
+            --bg-secondary: #0c1117;
+            --bg-tertiary: #151c26;
+            --bg-card: #0f1419;
+            --text-primary: #e2eaf2;
+            --text-secondary: #7a8694;
+            --text-muted: #414b58;
+            --accent: #3fb950;
+            --accent-hover: #56d364;
+            --accent-glow: rgba(63, 185, 80, 0.12);
+            --accent-glow-strong: rgba(63, 185, 80, 0.25);
             --green: #3fb950;
-            --green-dim: rgba(63, 185, 80, 0.15);
+            --green-dim: rgba(63, 185, 80, 0.12);
             --purple: #a371f7;
-            --purple-dim: rgba(163, 113, 247, 0.15);
+            --purple-dim: rgba(163, 113, 247, 0.12);
             --orange: #f0883e;
-            --orange-dim: rgba(240, 136, 62, 0.15);
+            --orange-dim: rgba(240, 136, 62, 0.12);
             --pink: #db61a2;
-            --pink-dim: rgba(219, 97, 162, 0.15);
+            --pink-dim: rgba(219, 97, 162, 0.12);
             --yellow: #d29922;
-            --yellow-dim: rgba(210, 153, 34, 0.15);
+            --yellow-dim: rgba(210, 153, 34, 0.12);
             --cyan: #39c5cf;
-            --cyan-dim: rgba(57, 197, 207, 0.15);
-            --border: #21262d;
-            --border-hover: #30363d;
+            --cyan-dim: rgba(57, 197, 207, 0.12);
+            --blue: #58a6ff;
+            --blue-dim: rgba(88, 166, 255, 0.12);
+            --border: #1b2230;
+            --border-hover: #2a3545;
             --radius: 12px;
             --radius-sm: 8px;
             --radius-lg: 16px;
@@ -63,11 +66,25 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
+            position: relative;
+        }
+
+        /* ── Noise Grain Overlay ───────────────── */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 256px 256px;
         }
 
         .container {
@@ -76,15 +93,34 @@
             padding: 0 24px;
         }
 
+        /* ── Scroll Reveal ─────────────────────── */
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-delay-1 { transition-delay: 0.08s; }
+        .reveal-delay-2 { transition-delay: 0.16s; }
+        .reveal-delay-3 { transition-delay: 0.24s; }
+        .reveal-delay-4 { transition-delay: 0.32s; }
+        .reveal-delay-5 { transition-delay: 0.40s; }
+        .reveal-delay-6 { transition-delay: 0.48s; }
+
         /* ── Header ─────────────────────────────── */
         header {
             padding: 16px 0;
             border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
-            background: rgba(10, 14, 20, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(6, 10, 14, 0.88);
+            backdrop-filter: blur(20px) saturate(1.2);
+            -webkit-backdrop-filter: blur(20px) saturate(1.2);
             z-index: 100;
         }
 
@@ -103,6 +139,11 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            transition: color 0.2s;
+        }
+
+        .logo:hover {
+            color: var(--accent);
         }
 
         .logo-icon {
@@ -120,7 +161,7 @@
 
         .nav-links {
             display: flex;
-            gap: 8px;
+            gap: 4px;
             list-style: none;
             align-items: center;
         }
@@ -151,11 +192,13 @@
             color: var(--text-primary);
             font-weight: 600;
             font-size: 0.85rem;
+            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
         }
 
         .nav-links .github-btn:hover {
             border-color: var(--border-hover);
             background: var(--border);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.03);
         }
 
         .mobile-menu {
@@ -169,7 +212,7 @@
 
         /* ── Hero ───────────────────────────────── */
         .hero {
-            padding: 100px 0 80px;
+            padding: 80px 0 80px;
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -178,61 +221,78 @@
         .hero::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 800px;
-            height: 600px;
-            background: radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 70%);
+            inset: 0;
+            background: url('images/social.png') center top / cover no-repeat;
+            opacity: 0.35;
             pointer-events: none;
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 40%, transparent 75%);
+            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 40%, transparent 75%);
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 120px;
+            background: linear-gradient(to top, var(--bg-primary) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .hero .container {
+            position: relative;
+            z-index: 1;
         }
 
         .hero-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: var(--bg-tertiary);
+            background: rgba(15, 20, 25, 0.8);
             border: 1px solid var(--border);
             border-radius: 100px;
-            padding: 6px 16px;
+            padding: 6px 18px;
             font-size: 0.85rem;
             color: var(--text-secondary);
             margin-bottom: 32px;
+            backdrop-filter: blur(8px);
         }
 
         .hero-badge .badge-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: var(--green);
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent-glow-strong);
             animation: pulse 2s ease-in-out infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent-glow-strong); }
+            50% { opacity: 0.4; box-shadow: 0 0 4px var(--accent-glow); }
         }
 
         .hero h1 {
-            font-size: 4rem;
+            font-size: 4.5rem;
             font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 20px;
-            letter-spacing: -0.03em;
+            line-height: 1.05;
+            margin-bottom: 24px;
+            letter-spacing: -0.04em;
         }
 
         .hero h1 .gradient {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 50%, var(--pink) 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, #56d364 40%, var(--cyan) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .hero .subtitle {
-            font-size: 1.2rem;
+            font-size: 1.15rem;
             color: var(--text-secondary);
-            max-width: 580px;
-            margin: 0 auto 40px;
+            max-width: 520px;
+            margin: 0 auto 44px;
             line-height: 1.7;
         }
 
@@ -250,12 +310,13 @@
             font-weight: 600;
             font-size: 0.95rem;
             text-decoration: none;
-            transition: all 0.2s ease;
+            transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
             display: inline-flex;
             align-items: center;
             gap: 8px;
             cursor: pointer;
             border: none;
+            font-family: inherit;
         }
 
         .btn-primary {
@@ -265,20 +326,21 @@
 
         .btn-primary:hover {
             background: var(--accent-hover);
-            box-shadow: 0 0 20px var(--accent-glow);
-            transform: translateY(-1px);
+            box-shadow: 0 0 24px var(--accent-glow-strong), 0 4px 16px rgba(0, 0, 0, 0.3);
+            transform: translateY(-2px);
         }
 
         .btn-outline {
-            background: transparent;
+            background: rgba(15, 20, 25, 0.6);
             color: var(--text-primary);
             border: 1px solid var(--border);
+            backdrop-filter: blur(8px);
         }
 
         .btn-outline:hover {
             border-color: var(--text-muted);
             background: var(--bg-tertiary);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
         }
 
         /* ── Service Badges ─────────────────────── */
@@ -287,7 +349,7 @@
             gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
-            margin-bottom: 64px;
+            margin-bottom: 56px;
         }
 
         .service-badge {
@@ -300,7 +362,7 @@
             font-weight: 600;
             border: 1px solid;
             text-decoration: none;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s;
         }
 
         .service-badge:hover {
@@ -308,11 +370,48 @@
         }
 
         .service-badge.logs { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+        .service-badge.logs:hover { box-shadow: 0 4px 20px rgba(63, 185, 80, 0.2); }
         .service-badge.s3 { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }
+        .service-badge.s3:hover { box-shadow: 0 4px 20px rgba(240, 136, 62, 0.2); }
         .service-badge.dynamo { background: var(--purple-dim); border-color: var(--purple); color: var(--purple); }
+        .service-badge.dynamo:hover { box-shadow: 0 4px 20px rgba(163, 113, 247, 0.2); }
         .service-badge.lambda { background: var(--yellow-dim); border-color: var(--yellow); color: var(--yellow); }
+        .service-badge.lambda:hover { box-shadow: 0 4px 20px rgba(210, 153, 34, 0.2); }
         .service-badge.ssm { background: var(--cyan-dim); border-color: var(--cyan); color: var(--cyan); }
+        .service-badge.ssm:hover { box-shadow: 0 4px 20px rgba(57, 197, 207, 0.2); }
         .service-badge.sqs { background: var(--pink-dim); border-color: var(--pink); color: var(--pink); }
+        .service-badge.sqs:hover { box-shadow: 0 4px 20px rgba(219, 97, 162, 0.2); }
+        .service-badge.ec2 { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+        .service-badge.ec2:hover { box-shadow: 0 4px 20px rgba(88, 166, 255, 0.2); }
+
+        /* ── Demo GIF ──────────────────────────── */
+        .demo-container {
+            max-width: 880px;
+            margin: 0 auto 48px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.02);
+            position: relative;
+        }
+
+        .demo-container::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: var(--radius-lg);
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(63, 185, 80, 0.15), transparent 40%, transparent 60%, rgba(57, 197, 207, 0.15));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .demo-container img {
+            width: 100%;
+            display: block;
+        }
 
         /* ── Terminal Demo ──────────────────────── */
         .terminal {
@@ -322,7 +421,7 @@
             overflow: hidden;
             max-width: 880px;
             margin: 0 auto;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.02);
         }
 
         .terminal-header {
@@ -369,11 +468,11 @@
             margin-bottom: 6px;
         }
 
-        .prompt { color: var(--green); }
+        .prompt { color: var(--accent); }
         .command { color: var(--text-primary); }
         .output { color: var(--text-secondary); padding-left: 20px; }
         .hl-green { color: var(--green); }
-        .hl-blue { color: var(--accent); }
+        .hl-blue { color: var(--blue); }
         .hl-purple { color: var(--purple); }
         .hl-orange { color: var(--orange); }
         .hl-pink { color: var(--pink); }
@@ -381,9 +480,23 @@
         .hl-yellow { color: var(--yellow); }
         .hl-dim { color: var(--text-muted); }
 
+        .cursor-blink {
+            display: inline-block;
+            width: 8px;
+            height: 1.1em;
+            background: var(--accent);
+            vertical-align: text-bottom;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
         /* ── Section shared ─────────────────────── */
         section {
-            padding: 96px 0;
+            padding: 100px 0;
         }
 
         .section-label {
@@ -391,26 +504,26 @@
             align-items: center;
             gap: 6px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
+            letter-spacing: 2px;
             color: var(--accent);
             margin-bottom: 16px;
         }
 
         .section-title {
-            font-size: 2.5rem;
+            font-size: 2.6rem;
             font-weight: 700;
             margin-bottom: 16px;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.03em;
         }
 
         .section-subtitle {
             color: var(--text-secondary);
-            font-size: 1.1rem;
-            max-width: 600px;
-            margin-bottom: 56px;
+            font-size: 1.05rem;
+            max-width: 560px;
+            margin-bottom: 60px;
         }
 
         .section-subtitle.center {
@@ -421,6 +534,12 @@
 
         .section-header-center {
             text-align: center;
+        }
+
+        /* ── Section Divider ───────────────────── */
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, var(--border) 20%, var(--border-hover) 50%, var(--border) 80%, transparent 100%);
         }
 
         /* ── Features Grid ──────────────────────── */
@@ -435,7 +554,7 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 28px;
-            transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+            transition: border-color 0.3s, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s;
             position: relative;
             overflow: hidden;
         }
@@ -447,14 +566,13 @@
             left: 0;
             right: 0;
             height: 2px;
-            opacity: 0;
-            transition: opacity 0.25s;
+            opacity: 0.4;
+            transition: opacity 0.3s;
         }
 
         .feature-card:hover {
             border-color: var(--border-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transform: translateY(-4px);
         }
 
         .feature-card:hover::before {
@@ -462,11 +580,19 @@
         }
 
         .feature-card.logs::before { background: var(--green); }
+        .feature-card.logs:hover { box-shadow: 0 12px 40px rgba(63, 185, 80, 0.08), 0 4px 16px rgba(0, 0, 0, 0.3); }
         .feature-card.s3::before { background: var(--orange); }
+        .feature-card.s3:hover { box-shadow: 0 12px 40px rgba(240, 136, 62, 0.08), 0 4px 16px rgba(0, 0, 0, 0.3); }
         .feature-card.dynamo::before { background: var(--purple); }
+        .feature-card.dynamo:hover { box-shadow: 0 12px 40px rgba(163, 113, 247, 0.08), 0 4px 16px rgba(0, 0, 0, 0.3); }
         .feature-card.lambda::before { background: var(--yellow); }
+        .feature-card.lambda:hover { box-shadow: 0 12px 40px rgba(210, 153, 34, 0.08), 0 4px 16px rgba(0, 0, 0, 0.3); }
         .feature-card.ssm::before { background: var(--cyan); }
+        .feature-card.ssm:hover { box-shadow: 0 12px 40px rgba(57, 197, 207, 0.08), 0 4px 16px rgba(0, 0, 0, 0.3); }
         .feature-card.sqs::before { background: var(--pink); }
+        .feature-card.sqs:hover { box-shadow: 0 12px 40px rgba(219, 97, 162, 0.08), 0 4px 16px rgba(0, 0, 0, 0.3); }
+        .feature-card.ec2::before { background: var(--blue); }
+        .feature-card.ec2:hover { box-shadow: 0 12px 40px rgba(88, 166, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.3); }
 
         .feature-icon {
             width: 44px;
@@ -485,6 +611,7 @@
         .feature-card.lambda .feature-icon { background: var(--yellow-dim); color: var(--yellow); }
         .feature-card.ssm .feature-icon { background: var(--cyan-dim); color: var(--cyan); }
         .feature-card.sqs .feature-icon { background: var(--pink-dim); color: var(--pink); }
+        .feature-card.ec2 .feature-icon { background: var(--blue-dim); color: var(--blue); }
 
         .feature-card h3 {
             font-size: 1.1rem;
@@ -502,12 +629,12 @@
             display: flex;
             gap: 6px;
             flex-wrap: wrap;
-            margin-top: 14px;
+            margin-top: 16px;
         }
 
         .feature-tag {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             padding: 3px 8px;
             border-radius: 4px;
             background: var(--bg-tertiary);
@@ -518,8 +645,6 @@
         /* ── Install Section ────────────────────── */
         #install {
             background: var(--bg-secondary);
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
         }
 
         .install-grid {
@@ -535,11 +660,12 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 24px;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .install-card:hover {
             border-color: var(--border-hover);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
         }
 
         .install-card h3 {
@@ -552,12 +678,13 @@
         }
 
         .install-card .badge {
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             padding: 2px 8px;
             border-radius: 100px;
             background: var(--green-dim);
             color: var(--green);
             font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .code-block {
@@ -569,6 +696,7 @@
             overflow-x: auto;
             position: relative;
             line-height: 1.6;
+            border: 1px solid var(--border);
         }
 
         .code-block code {
@@ -590,13 +718,14 @@
             color: var(--text-muted);
             cursor: pointer;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             transition: all 0.2s;
         }
 
         .copy-btn:hover {
-            color: var(--text-primary);
-            border-color: var(--border-hover);
+            color: var(--accent);
+            border-color: var(--accent);
+            background: var(--accent-glow);
         }
 
         /* ── Manual / Docs Section ──────────────── */
@@ -610,6 +739,11 @@
             margin-bottom: 40px;
             border-bottom: 1px solid var(--border);
             overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .manual-nav::-webkit-scrollbar {
+            display: none;
         }
 
         .manual-tab {
@@ -641,6 +775,12 @@
 
         .manual-content.active {
             display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .manual-section {
@@ -678,10 +818,11 @@
             position: absolute;
             left: 0;
             top: 14px;
-            width: 6px;
-            height: 6px;
+            width: 5px;
+            height: 5px;
             border-radius: 50%;
-            background: var(--text-muted);
+            background: var(--accent);
+            opacity: 0.5;
         }
 
         /* ── Keybinding Tables ──────────────────── */
@@ -694,7 +835,7 @@
         .keys-table th {
             text-align: left;
             padding: 10px 14px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -718,7 +859,7 @@
 
         .kbd {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             background: var(--bg-tertiary);
             padding: 3px 8px;
             border-radius: 4px;
@@ -728,19 +869,20 @@
         }
 
         .context-tag {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             padding: 2px 8px;
             border-radius: 100px;
             background: var(--bg-tertiary);
             color: var(--text-muted);
             white-space: nowrap;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* ── Keybindings Section (overview) ─────── */
         .keys-overview {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
         }
 
         .keys-group {
@@ -748,10 +890,22 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .keys-group::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            opacity: 0.5;
         }
 
         .keys-group h3 {
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -762,12 +916,21 @@
         }
 
         .keys-group.global h3 { color: var(--text-primary); }
+        .keys-group.global::before { background: var(--text-muted); }
         .keys-group.logs h3 { color: var(--green); }
+        .keys-group.logs::before { background: var(--green); }
         .keys-group.s3 h3 { color: var(--orange); }
+        .keys-group.s3::before { background: var(--orange); }
         .keys-group.dynamo h3 { color: var(--purple); }
+        .keys-group.dynamo::before { background: var(--purple); }
         .keys-group.lambda h3 { color: var(--yellow); }
+        .keys-group.lambda::before { background: var(--yellow); }
         .keys-group.ssm h3 { color: var(--cyan); }
+        .keys-group.ssm::before { background: var(--cyan); }
         .keys-group.sqs h3 { color: var(--pink); }
+        .keys-group.sqs::before { background: var(--pink); }
+        .keys-group.ec2 h3 { color: var(--blue); }
+        .keys-group.ec2::before { background: var(--blue); }
 
         .key-row {
             display: flex;
@@ -843,7 +1006,7 @@
 
         @media (max-width: 768px) {
             .hero h1 {
-                font-size: 2.5rem;
+                font-size: 2.8rem;
             }
 
             .hero .subtitle {
@@ -897,11 +1060,15 @@
             }
         }
 
-        /* ── Animations ─────────────────────────── */
+        /* ── Hero animate-in (initial load) ─────── */
+        .animate-in {
+            animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(16px);
+                transform: translateY(20px);
             }
             to {
                 opacity: 1;
@@ -909,15 +1076,11 @@
             }
         }
 
-        .animate-in {
-            animation: fadeInUp 0.5s ease-out both;
-        }
-
         .delay-1 { animation-delay: 0.1s; }
-        .delay-2 { animation-delay: 0.15s; }
-        .delay-3 { animation-delay: 0.2s; }
-        .delay-4 { animation-delay: 0.25s; }
-        .delay-5 { animation-delay: 0.3s; }
+        .delay-2 { animation-delay: 0.18s; }
+        .delay-3 { animation-delay: 0.26s; }
+        .delay-4 { animation-delay: 0.34s; }
+        .delay-5 { animation-delay: 0.42s; }
     </style>
 </head>
 <body>
@@ -952,7 +1115,7 @@
             <div class="container">
                 <div class="hero-badge animate-in">
                     <span class="badge-dot"></span>
-                    6 AWS services supported
+                    7 AWS services supported
                 </div>
                 <h1 class="animate-in delay-1">
                     Keyboard-first<br><span class="gradient">AWS TUI</span>
@@ -982,65 +1145,32 @@
                     <a href="#manual" class="service-badge lambda" onclick="switchTab('lambda')">Lambda</a>
                     <a href="#manual" class="service-badge ssm" onclick="switchTab('ssm')">SSM</a>
                     <a href="#manual" class="service-badge sqs" onclick="switchTab('sqs')">SQS</a>
+                    <a href="#manual" class="service-badge ec2" onclick="switchTab('ec2')">EC2</a>
                 </div>
 
-                <!-- Terminal Demo -->
-                <div class="terminal animate-in delay-5">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <div class="terminal-dot red"></div>
-                            <div class="terminal-dot yellow"></div>
-                            <div class="terminal-dot green"></div>
-                        </div>
-                        <div class="terminal-title">sacha &mdash; CloudWatch Logs</div>
-                        <div style="width: 48px;"></div>
-                    </div>
-                    <div class="terminal-body">
-                        <div class="terminal-line">
-                            <span class="prompt">$</span>
-                            <span class="command">brew install sachamama/tap/sacha</span>
-                        </div>
-                        <div class="output">
-                            <span class="hl-green">&rArr;</span> Installing <span class="hl-blue">sacha</span> from sachamama/tap<br>
-                            <span class="hl-green">&rArr;</span> <span class="hl-green">sacha</span> was successfully installed!
-                        </div>
-                        <br>
-                        <div class="terminal-line">
-                            <span class="prompt">$</span>
-                            <span class="command">sacha --profile production --region us-east-1</span>
-                        </div>
-                        <div class="output" style="padding-left: 0;">
-<pre style="color: var(--text-secondary); line-height: 1.5;">
-<span class="hl-pink">sacha</span> <span class="hl-blue">us-east-1</span> / <span class="hl-purple">CloudWatch Logs</span>
-
-<span class="hl-green">Log Groups</span>                      <span class="hl-orange">Logs</span>
-<span class="hl-dim">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span>
-<span class="hl-blue">&gt;</span> /aws/lambda/api-prod         <span class="hl-green">12:34:05</span> INFO Request handled
-  /aws/lambda/worker-prod      <span class="hl-green">12:34:04</span> INFO Processing job
-<span class="hl-pink">*</span> /aws/ecs/web-service         <span class="hl-orange">12:34:03</span> WARN High latency
-  /aws/apigateway/rest-api     <span class="hl-green">12:34:02</span> INFO 200 GET /users
-  /aws/rds/aurora-cluster      <span class="hl-green">12:34:01</span> INFO Query executed
-
-<span class="hl-dim">/ search  space select  t tail  r region  s service  q quit</span></pre>
-                        </div>
-                    </div>
+                <!-- Demo GIF -->
+                <div class="demo-container animate-in delay-5">
+                    <img src="demo.gif" alt="sacha demo showing CloudWatch Logs tailing, S3 browsing, and DynamoDB scanning">
                 </div>
+
             </div>
         </section>
+
+        <div class="section-divider"></div>
 
         <!-- ── Features ──────────────────────── -->
         <section id="features">
             <div class="container">
-                <div class="section-header-center">
+                <div class="section-header-center reveal">
                     <div class="section-label">Services</div>
-                    <h2 class="section-title">Six AWS services, one TUI</h2>
+                    <h2 class="section-title">Seven AWS services, one TUI</h2>
                     <p class="section-subtitle center">
                         Each service gets a two-pane interface with vim-style navigation,
                         lazy pagination, and consistent keybindings.
                     </p>
                 </div>
                 <div class="features-grid">
-                    <div class="feature-card logs">
+                    <div class="feature-card logs reveal reveal-delay-1">
                         <div class="feature-icon">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                         </div>
@@ -1052,7 +1182,7 @@
                             <span class="feature-tag">retention</span>
                         </div>
                     </div>
-                    <div class="feature-card s3">
+                    <div class="feature-card s3 reveal reveal-delay-2">
                         <div class="feature-icon">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                         </div>
@@ -1064,7 +1194,7 @@
                             <span class="feature-tag">clipboard</span>
                         </div>
                     </div>
-                    <div class="feature-card dynamo">
+                    <div class="feature-card dynamo reveal reveal-delay-3">
                         <div class="feature-icon">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
                         </div>
@@ -1076,7 +1206,7 @@
                             <span class="feature-tag">GSI info</span>
                         </div>
                     </div>
-                    <div class="feature-card lambda">
+                    <div class="feature-card lambda reveal reveal-delay-4">
                         <div class="feature-icon">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
                         </div>
@@ -1088,7 +1218,7 @@
                             <span class="feature-tag">config</span>
                         </div>
                     </div>
-                    <div class="feature-card ssm">
+                    <div class="feature-card ssm reveal reveal-delay-5">
                         <div class="feature-icon">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                         </div>
@@ -1100,7 +1230,7 @@
                             <span class="feature-tag">scroll memory</span>
                         </div>
                     </div>
-                    <div class="feature-card sqs">
+                    <div class="feature-card sqs reveal reveal-delay-6">
                         <div class="feature-icon">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
                         </div>
@@ -1112,14 +1242,28 @@
                             <span class="feature-tag">redrive</span>
                         </div>
                     </div>
+                    <div class="feature-card ec2 reveal reveal-delay-1">
+                        <div class="feature-icon">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        </div>
+                        <h3>EC2</h3>
+                        <p>Browse instances with state, type, public and private IPs. Expand for full metadata including tags, security groups, VPC, and subnet details.</p>
+                        <div class="feature-tags">
+                            <span class="feature-tag">instance details</span>
+                            <span class="feature-tag">tags</span>
+                            <span class="feature-tag">security groups</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
+        <div class="section-divider"></div>
+
         <!-- ── Install ───────────────────────── -->
         <section id="install">
             <div class="container">
-                <div class="section-header-center">
+                <div class="section-header-center reveal">
                     <div class="section-label">Get started</div>
                     <h2 class="section-title">Installation</h2>
                     <p class="section-subtitle center">
@@ -1127,7 +1271,7 @@
                     </p>
                 </div>
                 <div class="install-grid">
-                    <div class="install-card">
+                    <div class="install-card reveal reveal-delay-1">
                         <h3>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--orange)"><path d="M5.042 10.042c0-2.761 2.239-5 5-5s5 2.239 5 5-2.239 5-5 5-5-2.239-5-5zm14.916 8.916l-4.249-4.249c.885-1.177 1.333-2.619 1.333-4.167 0-3.86-3.14-7-7-7s-7 3.14-7 7 3.14 7 7 7c1.548 0 2.99-.448 4.167-1.333l4.249 4.249 1.5-1.5z"/></svg>
                             Homebrew
@@ -1138,9 +1282,9 @@
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
                     </div>
-                    <div class="install-card">
+                    <div class="install-card reveal reveal-delay-2">
                         <h3>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--blue)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                             Go Install
                         </h3>
                         <div class="code-block">
@@ -1148,34 +1292,16 @@
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
                     </div>
-                    <div class="install-card">
-                        <h3>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--green)"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                            Download Binary
-                        </h3>
-                        <div class="code-block">
-                            <code><span class="comment"># macOS (Apple Silicon)</span><br>curl -Lo sacha.tar.gz \<br>  https://github.com/Sachamama/sacha/releases/latest/download/sacha_darwin_arm64.tar.gz<br>tar xzf sacha.tar.gz &amp;&amp; sudo mv sacha /usr/local/bin/</code>
-                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                        </div>
-                    </div>
-                    <div class="install-card">
-                        <h3>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--purple)"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-                            Build from Source
-                        </h3>
-                        <div class="code-block">
-                            <code>git clone https://github.com/Sachamama/sacha.git<br>cd sacha &amp;&amp; make build<br><span class="comment"># Binary at ./bin/sacha</span></code>
-                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </section>
 
+        <div class="section-divider"></div>
+
         <!-- ── Manual ────────────────────────── -->
         <section id="manual">
             <div class="container">
-                <div class="section-header-center">
+                <div class="section-header-center reveal">
                     <div class="section-label">Documentation</div>
                     <h2 class="section-title">Manual</h2>
                     <p class="section-subtitle center">
@@ -1183,7 +1309,7 @@
                     </p>
                 </div>
 
-                <div class="manual-nav" role="tablist">
+                <div class="manual-nav reveal" role="tablist">
                     <button class="manual-tab active" onclick="switchTab('getting-started')" role="tab">Getting Started</button>
                     <button class="manual-tab" onclick="switchTab('logs')" role="tab">CloudWatch Logs</button>
                     <button class="manual-tab" onclick="switchTab('s3')" role="tab">S3</button>
@@ -1191,13 +1317,14 @@
                     <button class="manual-tab" onclick="switchTab('lambda')" role="tab">Lambda</button>
                     <button class="manual-tab" onclick="switchTab('ssm')" role="tab">SSM</button>
                     <button class="manual-tab" onclick="switchTab('sqs')" role="tab">SQS</button>
+                    <button class="manual-tab" onclick="switchTab('ec2')" role="tab">EC2</button>
                 </div>
 
                 <!-- Getting Started -->
                 <div class="manual-content active" id="tab-getting-started">
                     <div class="manual-section">
                         <h3>Overview</h3>
-                        <p>Sacha is a keyboard-first AWS TUI (Terminal User Interface) inspired by classic two-pane file managers. It provides a split-pane interface for browsing, searching, and managing AWS resources across six services: CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store, and SQS.</p>
+                        <p>Sacha is a keyboard-first AWS TUI (Terminal User Interface) inspired by classic two-pane file managers. It provides a split-pane interface for browsing, searching, and managing AWS resources across seven services: CloudWatch Logs, S3, DynamoDB, Lambda, SSM Parameter Store, SQS, and EC2.</p>
                     </div>
                     <div class="manual-section">
                         <h3>Prerequisites</h3>
@@ -1372,7 +1499,6 @@
                         <ul>
                             <li><strong>Multi-select</strong> &mdash; press <span class="kbd">space</span> to toggle selection on files and folders</li>
                             <li><strong>Select all (page)</strong> &mdash; press <span class="kbd">a</span> to toggle all items on the current page</li>
-                            <li><strong>Select all (everything)</strong> &mdash; press <span class="kbd">A</span> to load all remaining pages and select everything</li>
                             <li><strong>Download</strong> &mdash; press <span class="kbd">d</span> to download selected items. Folders are downloaded recursively. Files are saved to <code>./sacha-downloads/</code> with folder structure preserved</li>
                         </ul>
                     </div>
@@ -1395,7 +1521,6 @@
                                 <tr><td><span class="kbd">enter</span></td><td><span class="context-tag">Browse</span></td><td>Open bucket / folder</td></tr>
                                 <tr><td><span class="kbd">space</span></td><td><span class="context-tag">Browse</span></td><td>Toggle selection</td></tr>
                                 <tr><td><span class="kbd">a</span></td><td><span class="context-tag">Browse</span></td><td>Toggle all (current page)</td></tr>
-                                <tr><td><span class="kbd">A</span></td><td><span class="context-tag">Browse</span></td><td>Load all pages + select all</td></tr>
                                 <tr><td><span class="kbd">d</span></td><td><span class="context-tag">Browse</span></td><td>Download selected (recursive)</td></tr>
                                 <tr><td><span class="kbd">p</span></td><td><span class="context-tag">Browse</span></td><td>Preview text file</td></tr>
                                 <tr><td><span class="kbd">y</span></td><td><span class="context-tag">Browse</span></td><td>Copy S3 URI</td></tr>
@@ -1582,13 +1707,50 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- EC2 -->
+                <div class="manual-content" id="tab-ec2">
+                    <div class="manual-section">
+                        <h3>Overview</h3>
+                        <p>The EC2 view provides a two-pane browser for EC2 instances. View instance state, type, public and private IPs, and expand any instance for full metadata including tags, security groups, VPC, and subnet details.</p>
+                    </div>
+                    <div class="manual-section">
+                        <h3>Instances View</h3>
+                        <ul>
+                            <li><strong>Instance list</strong> &mdash; left pane shows instances with lazy-loaded pagination</li>
+                            <li><strong>Details pane</strong> &mdash; right pane displays instance name, ID, type, state, public/private IPs, and launch time</li>
+                            <li><strong>Search</strong> &mdash; press <span class="kbd">/</span> to filter by name, instance ID, type, state, or IP</li>
+                            <li><strong>Expand</strong> &mdash; press <span class="kbd">enter</span> or <span class="kbd">space</span> to open a scrollable popup with full metadata and tags</li>
+                            <li><strong>Copy ID</strong> &mdash; press <span class="kbd">y</span> to copy the instance ID</li>
+                        </ul>
+                    </div>
+                    <div class="manual-section">
+                        <h3>All Keybindings</h3>
+                        <table class="keys-table">
+                            <thead>
+                                <tr><th>Key</th><th>Context</th><th>Action</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><span class="kbd">j/k</span> or <span class="kbd">&uarr;/&darr;</span></td><td><span class="context-tag">List</span></td><td>Navigate</td></tr>
+                                <tr><td><span class="kbd">/</span></td><td><span class="context-tag">List</span></td><td>Search / filter</td></tr>
+                                <tr><td><span class="kbd">enter</span> / <span class="kbd">space</span></td><td><span class="context-tag">List</span></td><td>Expand instance details</td></tr>
+                                <tr><td><span class="kbd">y</span></td><td><span class="context-tag">List</span></td><td>Copy instance ID</td></tr>
+                                <tr><td><span class="kbd">j/k</span> or <span class="kbd">&uarr;/&darr;</span></td><td><span class="context-tag">Popup</span></td><td>Scroll content</td></tr>
+                                <tr><td><span class="kbd">pgup/pgdn</span></td><td><span class="context-tag">Popup</span></td><td>Page scroll</td></tr>
+                                <tr><td><span class="kbd">esc</span></td><td><span class="context-tag">Popup</span></td><td>Close popup</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </section>
 
+        <div class="section-divider"></div>
+
         <!-- ── Keybindings Overview ──────────── -->
-        <section id="keybindings" style="background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+        <section id="keybindings" style="background: var(--bg-secondary);">
             <div class="container">
-                <div class="section-header-center">
+                <div class="section-header-center reveal">
                     <div class="section-label">Reference</div>
                     <h2 class="section-title">Keybindings at a Glance</h2>
                     <p class="section-subtitle center">
@@ -1596,7 +1758,7 @@
                     </p>
                 </div>
                 <div class="keys-overview">
-                    <div class="keys-group global">
+                    <div class="keys-group global reveal reveal-delay-1">
                         <h3>Global</h3>
                         <div class="key-row"><span class="kbd">r</span><span class="key-action">Change region</span></div>
                         <div class="key-row"><span class="kbd">s</span><span class="key-action">Change service</span></div>
@@ -1605,7 +1767,7 @@
                         <div class="key-row"><span class="kbd">y</span><span class="key-action">Copy to clipboard</span></div>
                         <div class="key-row"><span class="kbd">Ctrl+C</span><span class="key-action">Quit</span></div>
                     </div>
-                    <div class="keys-group logs">
+                    <div class="keys-group logs reveal reveal-delay-2">
                         <h3>CloudWatch Logs</h3>
                         <div class="key-row"><span class="kbd">space</span><span class="key-action">Toggle selection</span></div>
                         <div class="key-row"><span class="kbd">t</span><span class="key-action">Start tailing</span></div>
@@ -1615,36 +1777,40 @@
                         <div class="key-row"><span class="kbd">v</span><span class="key-action">Toggle view</span></div>
                         <div class="key-row"><span class="kbd">f</span><span class="key-action">Fullscreen</span></div>
                     </div>
-                    <div class="keys-group s3">
+                    <div class="keys-group s3 reveal reveal-delay-3">
                         <h3>S3</h3>
                         <div class="key-row"><span class="kbd">enter</span><span class="key-action">Open bucket/folder</span></div>
                         <div class="key-row"><span class="kbd">space</span><span class="key-action">Toggle selection</span></div>
                         <div class="key-row"><span class="kbd">a</span><span class="key-action">Toggle all (page)</span></div>
-                        <div class="key-row"><span class="kbd">A</span><span class="key-action">Load all + select</span></div>
                         <div class="key-row"><span class="kbd">d</span><span class="key-action">Download</span></div>
                         <div class="key-row"><span class="kbd">p</span><span class="key-action">Preview file</span></div>
                     </div>
-                    <div class="keys-group dynamo">
+                    <div class="keys-group dynamo reveal reveal-delay-4">
                         <h3>DynamoDB</h3>
                         <div class="key-row"><span class="kbd">enter</span><span class="key-action">Open table / expand</span></div>
                         <div class="key-row"><span class="kbd">space</span><span class="key-action">Expand item</span></div>
                         <div class="key-row"><span class="kbd">esc</span><span class="key-action">Go back</span></div>
                     </div>
-                    <div class="keys-group lambda">
+                    <div class="keys-group lambda reveal reveal-delay-5">
                         <h3>Lambda</h3>
                         <div class="key-row"><span class="kbd">enter</span><span class="key-action">Expand function</span></div>
                         <div class="key-row"><span class="kbd">space</span><span class="key-action">Expand function</span></div>
                     </div>
-                    <div class="keys-group ssm">
+                    <div class="keys-group ssm reveal reveal-delay-6">
                         <h3>SSM</h3>
                         <div class="key-row"><span class="kbd">enter</span><span class="key-action">Enter folder / expand</span></div>
                         <div class="key-row"><span class="kbd">esc/h</span><span class="key-action">Go back</span></div>
                     </div>
-                    <div class="keys-group sqs">
+                    <div class="keys-group sqs reveal reveal-delay-1">
                         <h3>SQS</h3>
                         <div class="key-row"><span class="kbd">enter</span><span class="key-action">Peek messages</span></div>
                         <div class="key-row"><span class="kbd">space</span><span class="key-action">Expand queue</span></div>
                         <div class="key-row"><span class="kbd">esc/h</span><span class="key-action">Go back</span></div>
+                    </div>
+                    <div class="keys-group ec2 reveal reveal-delay-2">
+                        <h3>EC2</h3>
+                        <div class="key-row"><span class="kbd">enter</span><span class="key-action">Expand instance</span></div>
+                        <div class="key-row"><span class="kbd">space</span><span class="key-action">Expand instance</span></div>
                     </div>
                 </div>
             </div>
@@ -1671,6 +1837,7 @@
     </footer>
 
     <script>
+        // ── Copy code ────────────────────────────
         function copyCode(button) {
             const codeBlock = button.parentElement;
             const code = codeBlock.querySelector('code').innerText;
@@ -1679,21 +1846,31 @@
             setTimeout(() => button.textContent = 'Copy', 2000);
         }
 
+        // ── Tab switching ────────────────────────
         function switchTab(tabName) {
-            // Update tab buttons
             document.querySelectorAll('.manual-tab').forEach(tab => tab.classList.remove('active'));
             const tabs = document.querySelectorAll('.manual-tab');
-            const tabMap = ['getting-started', 'logs', 's3', 'dynamodb', 'lambda', 'ssm', 'sqs'];
+            const tabMap = ['getting-started', 'logs', 's3', 'dynamodb', 'lambda', 'ssm', 'sqs', 'ec2'];
             const idx = tabMap.indexOf(tabName);
             if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
 
-            // Update content
             document.querySelectorAll('.manual-content').forEach(c => c.classList.remove('active'));
             const content = document.getElementById('tab-' + tabName);
             if (content) content.classList.add('active');
         }
 
-        // Smooth scroll for anchor links
+        // ── Scroll-triggered reveals ─────────────
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+        // ── Smooth scroll for anchor links ───────
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
                 if (this.getAttribute('href') === '#') return;
@@ -1705,7 +1882,7 @@
             });
         });
 
-        // Close mobile menu on link click
+        // ── Close mobile menu on link click ──────
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
                 document.querySelector('.nav-links').classList.remove('open');

@@ -97,9 +97,18 @@ func (m Model) renderGroups() string {
 		endIdx = len(groups)
 	}
 
+	// Calculate max name width based on left panel content area.
+	// Left panel: Width(leftWidth-2) with padding(0,1), so content = leftWidth - 4.
+	// Each line: "[x] name" = 4 chars prefix + name.
+	leftWidth := m.width * 2 / 5
+	maxNameLen := leftWidth - 4 - 4 // content width minus checkbox prefix
+	if maxNameLen < 10 {
+		maxNameLen = 10
+	}
+
 	for i := m.listOffset; i < endIdx; i++ {
 		g := groups[i]
-		line := fmt.Sprintf("[%s] %s", checkbox(m.selected[g.Name]), g.Name)
+		line := fmt.Sprintf("[%s] %s", checkbox(m.selected[g.Name]), truncate(g.Name, maxNameLen))
 		if showCursor && i == m.cursor {
 			line = cursorStyle.Render(line)
 		} else if m.selected[g.Name] {

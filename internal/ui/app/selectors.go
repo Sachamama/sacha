@@ -32,22 +32,22 @@ type optionSelector struct {
 	hasViews  bool // whether this selector supports view switching
 }
 
-func newOptionSelector(title string, items []string) optionSelector {
+func newOptionSelector(items []string) optionSelector {
 	in := textinput.New()
 	in.Placeholder = "type to filter"
 	return optionSelector{
-		title:    title,
+		title:    "Select Service",
 		items:    items,
 		filtered: append([]string{}, items...),
 		input:    in,
 	}
 }
 
-func newOptionSelectorWithViews(title string, items, common []string) optionSelector {
+func newOptionSelectorWithViews(items, common []string) optionSelector {
 	in := textinput.New()
 	in.Placeholder = "type to filter"
 	return optionSelector{
-		title:     title,
+		title:     "Select Region",
 		items:     items,
 		commonSet: common,
 		filtered:  append([]string{}, common...),
@@ -66,10 +66,24 @@ func (s *optionSelector) open(items []string, current string) {
 		s.filtered = append([]string{}, items...)
 	}
 	s.cursor = 0
+	found := false
 	for i, v := range s.filtered {
 		if v == current {
 			s.cursor = i
+			found = true
 			break
+		}
+	}
+	// If the current value is not in the common view, switch to All
+	// so the user sees their current selection highlighted.
+	if s.hasViews && !found && current != "" {
+		s.viewMode = viewAll
+		s.filtered = append(s.filtered[:0], items...)
+		for i, v := range s.filtered {
+			if v == current {
+				s.cursor = i
+				break
+			}
 		}
 	}
 	s.input.SetValue("")

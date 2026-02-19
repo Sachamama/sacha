@@ -20,11 +20,15 @@ No more switching between browser tabs and consoles.
 
 </div>
 
+<p align="center">
+  <img src="demos/demo.gif" alt="sacha demo" width="800">
+</p>
+
 ---
 
 ## Why sacha?
 
-Sacha is a two-pane TUI inspired by classic file managers. It keeps you in the terminal while you explore AWS resources across six services, with vim-style navigation, lazy-loaded pagination, and automatic JSON formatting.
+Sacha is a two-pane TUI inspired by classic file managers. It keeps you in the terminal while you explore AWS resources across seven services, with vim-style navigation, lazy-loaded pagination, and automatic JSON formatting.
 
 > **sachamama** comes from Quechua and means "mother of the forest." **sacha** shortens the idea to "forest," reflecting how the tool helps you see the bigger AWS landscape without getting lost in individual trees.
 
@@ -38,6 +42,7 @@ Sacha is a two-pane TUI inspired by classic file managers. It keeps you in the t
 | **Lambda** | Browse functions. View configuration, environment variables, layers, and runtime details. |
 | **SSM Parameter Store** | Navigate parameters by path hierarchy. View values with decryption. Supports String, StringList, SecureString. |
 | **SQS** | Browse queues with message stats. Peek messages non-destructively. View FIFO/Standard attributes and redrive policies. |
+| **EC2** | Browse instances with state, type, IPs, and tags. Expand for full metadata. Filter by name, ID, type, state, or IP. |
 
 ---
 
@@ -123,7 +128,7 @@ sacha --profile production --region us-east-1 --service cloudwatch-logs
 |------|-------------|
 | `--profile` | AWS profile to use |
 | `--region` | AWS region |
-| `--service` | Jump directly to a service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`, `ssm`, `sqs`) |
+| `--service` | Jump directly to a service (`cloudwatch-logs`, `s3`, `dynamodb`, `lambda`, `ssm`, `sqs`, `ec2`) |
 | `--verbose` | Enable debug logging |
 | `--version` | Show version information |
 
@@ -158,7 +163,7 @@ Sacha remembers your last-used region and service automatically.
 ### S3
 
 - **Bucket and object browser** &mdash; navigate into buckets and folders with `enter`, go back with `esc`/`backspace`.
-- **Batch operations** &mdash; multi-select files and folders with `space`, select all with `a`, load all pages and select with `A`.
+- **Batch operations** &mdash; multi-select files and folders with `space`, select all with `a`.
 - **Recursive downloads** &mdash; press `d` to download selected files and folders to `./sacha-downloads/`, preserving folder structure.
 - **Text preview** &mdash; press `p` to preview file contents inline.
 - **Clipboard** &mdash; `y` to copy S3 URI.
@@ -198,6 +203,14 @@ Sacha remembers your last-used region and service automatically.
 - **Queue details popup** &mdash; press `space` to view full queue attributes.
 - **Clipboard** &mdash; `y` to copy queue URL or message body.
 - **Search/filter** &mdash; `/` to filter queues by name.
+
+### EC2
+
+- **Instance browser** &mdash; two-pane view with name, instance ID, type, state, public/private IPs, and launch time.
+- **Deep inspection** &mdash; `enter`/`space` to expand and view full metadata including tags, security groups, VPC, and subnet.
+- **Filter** &mdash; `/` to search by name, instance ID, type, state, or IP address.
+- **Clipboard** &mdash; `y` to copy instance ID.
+- **Lazy pagination** &mdash; loads more instances as you scroll.
 
 ---
 
@@ -243,7 +256,6 @@ Sacha remembers your last-used region and service automatically.
 | `enter` | Browse | Open bucket / folder |
 | `space` | Browse | Toggle selection |
 | `a` | Browse | Toggle all (current page) |
-| `A` | Browse | Load all pages + select all |
 | `d` | Browse | Download selected (recursive) |
 | `p` | Browse | Preview text file |
 | `y` | Browse | Copy S3 URI |
@@ -300,6 +312,18 @@ Sacha remembers your last-used region and service automatically.
 | `enter/space` | Messages | Expand message |
 | `y` | Messages | Copy message body |
 | `esc/backspace/h` | Messages | Go back to queues |
+| `j/k` or `↑/↓` | Popup | Scroll content |
+| `pgup/pgdn` | Popup | Page scroll |
+| `esc` | Popup | Close |
+
+### EC2
+
+| Key | Context | Action |
+|-----|---------|--------|
+| `j/k` or `↑/↓` | List | Navigate |
+| `/` | List | Search / filter by name, ID, type, state, or IP |
+| `enter/space` | List | Expand instance details |
+| `y` | List | Copy instance ID |
 | `j/k` or `↑/↓` | Popup | Scroll content |
 | `pgup/pgdn` | Popup | Page scroll |
 | `esc` | Popup | Close |

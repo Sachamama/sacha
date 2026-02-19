@@ -18,17 +18,9 @@ make local-up && make local-seed && make build
 
 ## Available Demos
 
-### `sacha-quick.tape` — Quick Showcase (6-10s)
+### `demo.tape` — Full Demo
 
-Fast tour through all 4 services. Best for social media and README.
-
-```bash
-cd demos && vhs sacha-quick.tape
-```
-
-### `sacha-full.tape` — Full Demo (20-25s)
-
-Deeper feature exploration: log tailing, S3 browsing, DynamoDB scanning, Lambda filtering.
+Tours through all services: log tailing, S3 browsing, DynamoDB scanning, and more.
 
 Requires live log events for the tailing section:
 
@@ -37,12 +29,38 @@ Requires live log events for the tailing section:
 make local-seed-live
 
 # Terminal 2: record
-cd demos && vhs sacha-full.tape
+cd demos && vhs demo.tape
+```
+
+### Starter Template
+
+Minimal tape with shell, output, dimensions, and LocalStack environment pre-configured. Use as a starting point for new recordings:
+
+```tape
+Set Shell zsh
+Output demo.gif
+Set Width 1900
+Set Height 800
+Env AWS_ENDPOINT_URL "http://localhost:4566"
+Env AWS_ACCESS_KEY_ID "test"
+Env AWS_SECRET_ACCESS_KEY "test"
+Env AWS_REGION "us-east-1"
+```
+
+Copy and extend with your own VHS commands.
+
+## Environment variables
+
+```bash
+export AWS_ENDPOINT_URL="http://localhost:4566"
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_REGION=us-east-1
 ```
 
 ## Output
 
-Recordings are saved as `.mp4` files in this directory (gitignored).
+Recordings are saved as `.gif` files in this directory (gitignored).
 
 ## Customization
 

@@ -112,6 +112,9 @@ func NewModel(client *s3.Client, c *cache.Cache, cacheKey cache.Key) Model {
 
 // Init initializes the model by loading buckets.
 func (m Model) Init() tea.Cmd {
+	if len(m.buckets) > 0 {
+		return nil
+	}
 	return m.loadBucketsCmd()
 }
 

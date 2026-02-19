@@ -174,6 +174,9 @@ func NewModel(client *logs.Client, c *cache.Cache, cacheKey cache.Key) Model {
 }
 
 func (m Model) Init() tea.Cmd {
+	if len(m.logGroups) > 0 {
+		return nil
+	}
 	return m.loadLogGroupsCmd()
 }
 

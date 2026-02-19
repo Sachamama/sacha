@@ -90,6 +90,9 @@ func NewModel(client *dynamodb.Client, c *cache.Cache, cacheKey cache.Key) Model
 
 // Init initializes the model by loading tables.
 func (m Model) Init() tea.Cmd {
+	if len(m.tables) > 0 {
+		return nil
+	}
 	return m.loadTablesCmd()
 }
 

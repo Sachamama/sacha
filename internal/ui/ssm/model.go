@@ -88,6 +88,9 @@ func NewModel(client *ssm.Client, c *cache.Cache, cacheKey cache.Key) Model {
 
 // Init initializes the model by loading top-level paths.
 func (m Model) Init() tea.Cmd {
+	if len(m.params) > 0 {
+		return nil
+	}
 	return m.loadParametersCmd()
 }
 

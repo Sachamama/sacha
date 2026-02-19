@@ -225,7 +225,7 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
-	leftWidth := m.width / 2
+	leftWidth := m.width * 2 / 5
 	rightWidth := m.width - leftWidth
 	bodyHeight := m.bodyHeight()
 

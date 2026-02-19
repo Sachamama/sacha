@@ -285,8 +285,8 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
-	// Split width for two panels
-	leftWidth := m.width / 2
+	// Split width for two panels (40/60)
+	leftWidth := m.width * 2 / 5
 	rightWidth := m.width - leftWidth
 	bodyHeight := m.bodyHeight()
 

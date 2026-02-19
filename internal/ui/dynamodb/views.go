@@ -172,7 +172,7 @@ func (m Model) formatItemLine(item dynamodb.Item) string {
 	line := "  " + strings.Join(parts, " | ")
 
 	// Truncate if too wide for panel
-	maxWidth := m.width/2 - 6
+	maxWidth := m.width*2/5 - 6
 	if maxWidth > 0 && len(line) > maxWidth {
 		line = line[:maxWidth-3] + "..."
 	}
@@ -276,7 +276,7 @@ func (m Model) buildItemDetailsContent() string {
 
 // detailViewportSize returns the width and height for the detail panel viewport.
 func (m Model) detailViewportSize() (int, int) {
-	rightWidth := m.width - m.width/2
+	rightWidth := m.width - m.width*2/5
 	// panelStyle: border(2h+2v) + padding(0v+2h) => content = width-4 h, height-2 v
 	contentWidth := rightWidth - 6
 	if contentWidth < 10 {

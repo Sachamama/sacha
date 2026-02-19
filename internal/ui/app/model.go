@@ -52,8 +52,8 @@ func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime conf
 		cache:     cache.New(),
 		accountID: accountID,
 	}
-	m.regionSelector = newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
-	m.serviceSelector = newOptionSelector("Select Service", serviceNames(services))
+	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
+	m.serviceSelector = newOptionSelector(serviceNames(services))
 	if err := m.activateService(runtime.Service); err != nil {
 		return Model{}, err
 	}

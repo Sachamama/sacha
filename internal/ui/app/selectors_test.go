@@ -50,7 +50,7 @@ func TestOptionSelectorOpenHighlightsCurrentRegion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
+			s := newOptionSelectorWithViews(awsRegions, commonRegions)
 			s.open(awsRegions, tt.current)
 
 			if s.viewMode != tt.wantViewMode {
@@ -78,7 +78,7 @@ func TestOptionSelectorOpenHighlightsCurrentRegion(t *testing.T) {
 
 func TestOptionSelectorOpenCloseReopenPreservesRegion(t *testing.T) {
 	// Simulate: open region selector, close with Esc, reopen — cursor should be on same region
-	s := newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
+	s := newOptionSelectorWithViews(awsRegions, commonRegions)
 
 	// First open: eu-west-1
 	s.open(awsRegions, "eu-west-1")
@@ -109,7 +109,7 @@ func TestOptionSelectorOpenCloseReopenPreservesRegion(t *testing.T) {
 }
 
 func TestOptionSelectorSelectThenReopenShowsNewRegion(t *testing.T) {
-	s := newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
+	s := newOptionSelectorWithViews(awsRegions, commonRegions)
 
 	// Open and select eu-central-1 (index 5 in common)
 	s.open(awsRegions, "us-east-1")
@@ -139,7 +139,7 @@ func TestOptionSelectorSelectThenReopenShowsNewRegion(t *testing.T) {
 }
 
 func TestOptionSelectorNonCommonRegionReopenPreservesRegion(t *testing.T) {
-	s := newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
+	s := newOptionSelectorWithViews(awsRegions, commonRegions)
 
 	// Open with sa-east-1 (not in common set, should switch to All view)
 	s.open(awsRegions, "sa-east-1")
@@ -162,7 +162,7 @@ func TestOptionSelectorNonCommonRegionReopenPreservesRegion(t *testing.T) {
 }
 
 func TestOptionSelectorFilterResetOnOpen(t *testing.T) {
-	s := newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
+	s := newOptionSelectorWithViews(awsRegions, commonRegions)
 
 	// Open and type a filter
 	s.open(awsRegions, "eu-west-1")

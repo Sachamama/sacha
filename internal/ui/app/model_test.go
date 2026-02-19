@@ -56,8 +56,8 @@ func newTestModel(t *testing.T, region string) Model {
 		cfg:      cfg,
 		cache:    cache.New(),
 	}
-	m.regionSelector = newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
-	m.serviceSelector = newOptionSelector("Select Service", serviceNames(services))
+	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
+	m.serviceSelector = newOptionSelector(serviceNames(services))
 
 	// Activate the mock service
 	if err := m.activateService("mock"); err != nil {
@@ -153,8 +153,8 @@ func TestModelChangeRegionUpdatesRuntimeRegion(t *testing.T) {
 		cfg:      cfg,
 		cache:    cache.New(),
 	}
-	m.regionSelector = newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
-	m.serviceSelector = newOptionSelector("Select Service", serviceNames(services))
+	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
+	m.serviceSelector = newOptionSelector(serviceNames(services))
 	if err := m.activateService("mock"); err != nil {
 		t.Fatalf("activateService: %v", err)
 	}
@@ -219,8 +219,8 @@ func TestModelRegionSelectorFallsBackToCfgRegion(t *testing.T) {
 		cfg:      cfg,
 		cache:    cache.New(),
 	}
-	m.regionSelector = newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
-	m.serviceSelector = newOptionSelector("Select Service", serviceNames(services))
+	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
+	m.serviceSelector = newOptionSelector(serviceNames(services))
 	if err := m.activateService("mock"); err != nil {
 		t.Fatalf("activateService: %v", err)
 	}
@@ -260,8 +260,8 @@ func TestModelChangeRegionRollsBackOnFailure(t *testing.T) {
 		cfg:      cfg,
 		cache:    cache.New(),
 	}
-	m.regionSelector = newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
-	m.serviceSelector = newOptionSelector("Select Service", serviceNames(services))
+	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
+	m.serviceSelector = newOptionSelector(serviceNames(services))
 	if err := m.activateService("mock"); err != nil {
 		t.Fatalf("activateService: %v", err)
 	}

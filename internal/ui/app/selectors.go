@@ -66,10 +66,24 @@ func (s *optionSelector) open(items []string, current string) {
 		s.filtered = append([]string{}, items...)
 	}
 	s.cursor = 0
+	found := false
 	for i, v := range s.filtered {
 		if v == current {
 			s.cursor = i
+			found = true
 			break
+		}
+	}
+	// If the current value is not in the common view, switch to All
+	// so the user sees their current selection highlighted.
+	if s.hasViews && !found && current != "" {
+		s.viewMode = viewAll
+		s.filtered = append(s.filtered[:0], items...)
+		for i, v := range s.filtered {
+			if v == current {
+				s.cursor = i
+				break
+			}
 		}
 	}
 	s.input.SetValue("")

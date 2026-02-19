@@ -128,6 +128,9 @@ func (m Model) renderTail() string {
 		return m.renderGroupDetails()
 	}
 	header := titleStyle.Render("Logs")
+	if m.autoScroll {
+		header += "  " + statusStyle.Render("[follow]")
+	}
 	if evts := m.filteredEvents(); len(evts) > 0 {
 		minTime := evts[0].Timestamp
 		for _, e := range evts[1:] {

@@ -98,8 +98,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.nextToken = msg.nextToken
 		sortFunctions(m.functions)
 		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded %d functions", len(msg.functions))
-		return m, m.fetchDetailsCmd()
+		if m.nextToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d functions (loading more...)", len(msg.functions))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d functions", len(msg.functions))
+		}
+		return m, tea.Batch(m.fetchDetailsCmd(), m.loadMoreIfNeeded())
 
 	case moreFunctionsLoadedMsg:
 		m.loadingMore = false
@@ -111,21 +115,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.nextToken = msg.nextToken
 		sortFunctions(m.functions)
 		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded %d functions", len(m.functions))
-		return m, m.loadMoreIfNeeded()
-
-	case allFunctionsLoadedMsg:
-		m.loadingMore = false
-		if msg.err != nil {
-			m.statusLine = msg.err.Error()
-			return m, nil
+		if m.nextToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d functions (loading more...)", len(m.functions))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d functions", len(m.functions))
 		}
-		m.functions = append(m.functions, msg.functions...)
-		m.nextToken = nil
-		sortFunctions(m.functions)
-		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded all %d functions", len(m.functions))
-		return m, nil
+		return m, m.loadMoreIfNeeded()
 
 	case functionDetailsMsg:
 		if msg.err != nil {
@@ -214,12 +209,6 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if arn != "" {
 			_ = clipboard.WriteAll(arn)
 			m.statusLine = "Copied: " + arn
-		}
-	case "A":
-		if m.nextToken != nil && !m.loadingMore {
-			m.loadingMore = true
-			m.statusLine = "Loading all functions..."
-			return m, m.loadAllFunctionsCmd()
 		}
 	case "ctrl+r":
 		if m.cache != nil {
@@ -354,16 +343,8 @@ func (m Model) filteredFunctions() []lambda.Function {
 	return out
 }
 
-// loadMoreIfNeeded loads the next page if a filter is active and the filtered
-// results don't fill the visible list height.
 func (m *Model) loadMoreIfNeeded() tea.Cmd {
-	if m.search.Value() == "" {
-		return nil
-	}
 	if m.nextToken == nil || m.loadingMore {
-		return nil
-	}
-	if len(m.filteredFunctions()) >= m.listHeight() {
 		return nil
 	}
 	m.loadingMore = true
@@ -403,23 +384,6 @@ func (m Model) loadMoreFunctionsCmd() tea.Cmd {
 	}
 }
 
-func (m Model) loadAllFunctionsCmd() tea.Cmd {
-	token := m.nextToken
-	return func() tea.Msg {
-		ctx := context.Background()
-		var all []lambda.Function
-		for token != nil {
-			functions, next, err := m.client.ListFunctions(ctx, token)
-			if err != nil {
-				return allFunctionsLoadedMsg{err: err}
-			}
-			all = append(all, functions...)
-			token = next
-		}
-		return allFunctionsLoadedMsg{functions: all}
-	}
-}
-
 func (m Model) fetchDetailsCmd() tea.Cmd {
 	name := m.currentFunctionName()
 	if name == "" {
@@ -445,5 +409,5 @@ func (m Model) StatusHelp() string {
 	if m.searching {
 		return "enter/esc close search"
 	}
-	return "↑↓ move, / search, enter expand, A load all, y copy ARN, ctrl+r refresh"
+	return "↑↓ move, / search, enter expand, y copy ARN, ctrl+r refresh"
 }

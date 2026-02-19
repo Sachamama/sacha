@@ -114,8 +114,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tableToken = msg.nextToken
 		sortTables(m.tables)
 		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded %d tables", len(msg.tables))
-		return m, m.fetchDescriptionCmd()
+		if m.tableToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d tables (loading more...)", len(msg.tables))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d tables", len(msg.tables))
+		}
+		return m, tea.Batch(m.fetchDescriptionCmd(), m.loadMoreIfNeeded())
 
 	case moreTablesLoadedMsg:
 		m.loadingMore = false
@@ -127,7 +131,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tableToken = msg.nextToken
 		sortTables(m.tables)
 		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded %d tables", len(m.tables))
+		if m.tableToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d tables (loading more...)", len(m.tables))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d tables", len(m.tables))
+		}
 		return m, m.loadMoreIfNeeded()
 
 	case tableDescriptionMsg:
@@ -155,12 +163,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.listOffset = 0
 		m.itemColumns = m.buildColumns()
 		if m.lastEvaluatedKey != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(m.items))
+			m.statusLine = fmt.Sprintf("Loaded %d items (loading more...)", len(m.items))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(m.items))
 		}
 		m.updateDetailViewport()
-		return m, nil
+		return m, m.loadMoreIfNeeded()
 
 	case moreItemsLoadedMsg:
 		m.loadingMore = false
@@ -172,38 +180,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastEvaluatedKey = msg.result.LastEvaluatedKey
 		m.itemColumns = m.buildColumns()
 		if m.lastEvaluatedKey != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d items (more available)", len(m.items))
+			m.statusLine = fmt.Sprintf("Loaded %d items (loading more...)", len(m.items))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d items", len(m.items))
 		}
 		m.updateDetailViewport()
 		return m, m.loadMoreIfNeeded()
-
-	case allTablesLoadedMsg:
-		m.loadingMore = false
-		if msg.err != nil {
-			m.statusLine = msg.err.Error()
-			return m, nil
-		}
-		m.tables = append(m.tables, msg.tables...)
-		m.tableToken = nil
-		sortTables(m.tables)
-		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded all %d tables", len(m.tables))
-		return m, nil
-
-	case allItemsLoadedMsg:
-		m.loadingMore = false
-		if msg.err != nil {
-			m.statusLine = msg.err.Error()
-			return m, nil
-		}
-		m.items = append(m.items, msg.result.Items...)
-		m.lastEvaluatedKey = nil
-		m.itemColumns = m.buildColumns()
-		m.statusLine = fmt.Sprintf("Loaded all %d items", len(m.items))
-		m.updateDetailViewport()
-		return m, nil
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
@@ -306,19 +288,6 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if arn != "" {
 			_ = clipboard.WriteAll(arn)
 			m.statusLine = "Copied: " + arn
-		}
-	case "A":
-		if !m.loadingMore {
-			if m.table == "" && m.tableToken != nil {
-				m.loadingMore = true
-				m.statusLine = "Loading all tables..."
-				return m, m.loadAllTablesCmd()
-			}
-			if m.table != "" && m.lastEvaluatedKey != nil {
-				m.loadingMore = true
-				m.statusLine = "Loading all items..."
-				return m, m.loadAllItemsCmd()
-			}
 		}
 	case "pgup":
 		m.detailViewport.HalfPageUp()
@@ -570,31 +539,18 @@ func (m Model) buildColumns() []string {
 	return append(keyColumns, otherColumns...)
 }
 
-// loadMoreIfNeeded loads the next page if a filter is active and the filtered
-// results don't fill the visible list height.
 func (m *Model) loadMoreIfNeeded() tea.Cmd {
-	if m.search.Value() == "" {
-		return nil
-	}
 	if m.loadingMore {
 		return nil
 	}
 	if m.table == "" {
-		// Table list pagination
 		if m.tableToken == nil {
-			return nil
-		}
-		if len(m.filteredTables()) >= m.listHeight() {
 			return nil
 		}
 		m.loadingMore = true
 		return m.loadMoreTablesCmd()
 	}
-	// Items pagination
 	if m.lastEvaluatedKey == nil {
-		return nil
-	}
-	if len(m.filteredItems()) >= m.listHeight() {
 		return nil
 	}
 	m.loadingMore = true
@@ -674,42 +630,6 @@ func (m Model) loadMoreItemsCmd() tea.Cmd {
 	}
 }
 
-func (m Model) loadAllTablesCmd() tea.Cmd {
-	token := m.tableToken
-	return func() tea.Msg {
-		ctx := context.Background()
-		var all []dynamodb.Table
-		for token != nil {
-			tables, next, err := m.client.ListTables(ctx, token)
-			if err != nil {
-				return allTablesLoadedMsg{err: err}
-			}
-			all = append(all, tables...)
-			token = next
-		}
-		return allTablesLoadedMsg{tables: all}
-	}
-}
-
-func (m Model) loadAllItemsCmd() tea.Cmd {
-	tableName := m.table
-	lastKey := m.lastEvaluatedKey
-	return func() tea.Msg {
-		ctx := context.Background()
-		var allItems []dynamodb.Item
-		key := dynamodb.RawLastEvaluatedKey(lastKey)
-		for key != nil {
-			result, err := m.client.Scan(ctx, tableName, key, scanPageSize)
-			if err != nil {
-				return allItemsLoadedMsg{result: &dynamodb.ScanResult{}, err: err}
-			}
-			allItems = append(allItems, result.Items...)
-			key = dynamodb.RawLastEvaluatedKey(result.LastEvaluatedKey)
-		}
-		return allItemsLoadedMsg{result: &dynamodb.ScanResult{Items: allItems}}
-	}
-}
-
 // Searching reports whether the model has an active text input.
 func (m Model) Searching() bool {
 	return m.searching
@@ -724,7 +644,7 @@ func (m Model) StatusHelp() string {
 		return "enter/esc close search"
 	}
 	if m.table == "" {
-		return "↑↓ move, / search, enter open, A load all, pgup/pgdn details, y copy ARN, ctrl+r refresh"
+		return "↑↓ move, / search, enter open, pgup/pgdn details, y copy ARN, ctrl+r refresh"
 	}
-	return "↑↓ move, / search, enter expand, A load all, pgup/pgdn details, y copy ARN, ctrl+r refresh, esc/h back"
+	return "↑↓ move, / search, enter expand, pgup/pgdn details, y copy ARN, ctrl+r refresh, esc/h back"
 }

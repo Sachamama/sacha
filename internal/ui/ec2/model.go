@@ -95,8 +95,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.nextToken = msg.nextToken
 		sortInstances(m.instances)
 		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded %d instances", len(msg.instances))
-		return m, nil
+		if m.nextToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d instances (loading more...)", len(msg.instances))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d instances", len(msg.instances))
+		}
+		return m, m.loadMoreIfNeeded()
 
 	case moreInstancesLoadedMsg:
 		m.loadingMore = false
@@ -108,21 +112,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.nextToken = msg.nextToken
 		sortInstances(m.instances)
 		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded %d instances", len(m.instances))
-		return m, m.loadMoreIfNeeded()
-
-	case allInstancesLoadedMsg:
-		m.loadingMore = false
-		if msg.err != nil {
-			m.statusLine = msg.err.Error()
-			return m, nil
+		if m.nextToken != nil {
+			m.statusLine = fmt.Sprintf("Loaded %d instances (loading more...)", len(m.instances))
+		} else {
+			m.statusLine = fmt.Sprintf("Loaded %d instances", len(m.instances))
 		}
-		m.instances = append(m.instances, msg.instances...)
-		m.nextToken = nil
-		sortInstances(m.instances)
-		m.updateCache()
-		m.statusLine = fmt.Sprintf("Loaded all %d instances", len(m.instances))
-		return m, nil
+		return m, m.loadMoreIfNeeded()
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
@@ -199,12 +194,6 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if id != "" {
 			_ = clipboard.WriteAll(id)
 			m.statusLine = "Copied: " + id
-		}
-	case "A":
-		if m.nextToken != nil && !m.loadingMore {
-			m.loadingMore = true
-			m.statusLine = "Loading all instances..."
-			return m, m.loadAllInstancesCmd()
 		}
 	case "ctrl+r":
 		if m.cache != nil {
@@ -324,16 +313,8 @@ func (m Model) filteredInstances() []ec2.Instance {
 	return out
 }
 
-// loadMoreIfNeeded loads the next page if a filter is active and the filtered
-// results don't fill the visible list height.
 func (m *Model) loadMoreIfNeeded() tea.Cmd {
-	if m.search.Value() == "" {
-		return nil
-	}
 	if m.nextToken == nil || m.loadingMore {
-		return nil
-	}
-	if len(m.filteredInstances()) >= m.listHeight() {
 		return nil
 	}
 	m.loadingMore = true
@@ -383,23 +364,6 @@ func (m Model) loadMoreInstancesCmd() tea.Cmd {
 	}
 }
 
-func (m Model) loadAllInstancesCmd() tea.Cmd {
-	token := m.nextToken
-	return func() tea.Msg {
-		ctx := context.Background()
-		var all []ec2.Instance
-		for token != nil {
-			instances, next, err := m.client.ListInstances(ctx, token)
-			if err != nil {
-				return allInstancesLoadedMsg{err: err}
-			}
-			all = append(all, instances...)
-			token = next
-		}
-		return allInstancesLoadedMsg{instances: all}
-	}
-}
-
 // Searching reports whether the model has an active text input.
 func (m Model) Searching() bool {
 	return m.searching
@@ -413,5 +377,5 @@ func (m Model) StatusHelp() string {
 	if m.searching {
 		return "enter/esc close search"
 	}
-	return "↑↓ move, / search, enter expand, A load all, y copy ID, ctrl+r refresh"
+	return "↑↓ move, / search, enter expand, y copy ID, ctrl+r refresh"
 }

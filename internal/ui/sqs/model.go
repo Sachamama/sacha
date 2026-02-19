@@ -108,11 +108,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sortQueues(m.queues)
 		m.updateCache()
 		if m.nextToken != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d queues (more available)", len(msg.queues))
+			m.statusLine = fmt.Sprintf("Loaded %d queues (loading more...)", len(msg.queues))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d queues", len(msg.queues))
 		}
-		return m, m.fetchAttributesCmd()
+		return m, tea.Batch(m.fetchAttributesCmd(), m.loadMoreIfNeeded())
 
 	case moreQueuesLoadedMsg:
 		m.loadingMore = false
@@ -125,7 +125,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sortQueues(m.queues)
 		m.updateCache()
 		if m.nextToken != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d queues (more available)", len(m.queues))
+			m.statusLine = fmt.Sprintf("Loaded %d queues (loading more...)", len(m.queues))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d queues", len(m.queues))
 		}
@@ -501,16 +501,8 @@ func (m Model) filteredQueues() []sqs.Queue {
 	return out
 }
 
-// loadMoreIfNeeded loads the next page if a filter is active and the filtered
-// results don't fill the visible list height.
 func (m *Model) loadMoreIfNeeded() tea.Cmd {
-	if m.search.Value() == "" {
-		return nil
-	}
 	if m.nextToken == nil || m.loadingMore {
-		return nil
-	}
-	if len(m.filteredQueues()) >= m.listHeight() {
 		return nil
 	}
 	m.loadingMore = true

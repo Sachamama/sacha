@@ -22,9 +22,3 @@ type functionDetailsMsg struct {
 	functionName string
 	err          error
 }
-
-// allFunctionsLoadedMsg is sent when all remaining functions are loaded.
-type allFunctionsLoadedMsg struct {
-	functions []lambda.Function
-	err       error
-}

@@ -198,10 +198,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sortLogGroups(m.logGroups)
 		m.updateCache()
 		if m.nextGroupToken != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d log groups (more available)", len(msg.groups))
+			m.statusLine = fmt.Sprintf("Loaded %d log groups (loading more...)", len(msg.groups))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d log groups", len(msg.groups))
 		}
+		return m, m.loadMoreIfNeeded()
 	case moreLogGroupsLoadedMsg:
 		m.loadingMore = false
 		if msg.err != nil {
@@ -213,7 +214,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sortLogGroups(m.logGroups)
 		m.updateCache()
 		if m.nextGroupToken != nil {
-			m.statusLine = fmt.Sprintf("Loaded %d log groups (more available)", len(m.logGroups))
+			m.statusLine = fmt.Sprintf("Loaded %d log groups (loading more...)", len(m.logGroups))
 		} else {
 			m.statusLine = fmt.Sprintf("Loaded %d log groups", len(m.logGroups))
 		}
@@ -728,19 +729,11 @@ func (m Model) loadMoreLogGroupsCmd() tea.Cmd {
 	}
 }
 
-// loadMoreIfNeeded loads the next page if a filter is active and the filtered
-// results don't fill the visible list height.
 func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	if m.tailing {
 		return nil
 	}
-	if m.search.Value() == "" {
-		return nil
-	}
 	if m.nextGroupToken == nil || m.loadingMore {
-		return nil
-	}
-	if len(m.filteredGroups()) >= m.listHeight() {
 		return nil
 	}
 	m.loadingMore = true

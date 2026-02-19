@@ -115,7 +115,7 @@ func (m Model) renderInstanceList(b *strings.Builder, visibleHeight int) {
 		state := inst.State
 		line := fmt.Sprintf("  %s  %s  %s", name, state, inst.InstanceType)
 
-		maxWidth := m.width/2 - 6
+		maxWidth := m.width*2/5 - 6
 		truncated := false
 		if maxWidth > 0 && len(line) > maxWidth {
 			line = line[:maxWidth-3] + "..."

@@ -38,6 +38,10 @@ type Model struct {
 }
 
 func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime config.RuntimeConfig, cfg sdkaws.Config, logger *zerolog.Logger) (Model, error) {
+	// Ensure runtime.Region is always set when cfg.Region is available.
+	if runtime.Region == "" && cfg.Region != "" {
+		runtime.Region = cfg.Region
+	}
 	accountID := awsx.ResolveAccountID(context.Background(), cfg, runtime.Profile)
 	m := Model{
 		loader:    loader,
@@ -90,7 +94,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "r":
 			if !isSearching(m.service) {
-				m.regionSelector.open(awsRegions, m.runtime.Region)
+				currentRegion := m.runtime.Region
+				if currentRegion == "" {
+					currentRegion = m.cfg.Region
+				}
+				m.regionSelector.open(awsRegions, currentRegion)
 				return m, m.regionSelector.input.Focus()
 			}
 		case "s":
@@ -156,14 +164,21 @@ func (m *Model) activateService(name string) error {
 }
 
 func (m *Model) changeRegion(region string) (tea.Cmd, error) {
+	if region == "" {
+		return nil, fmt.Errorf("region must not be empty")
+	}
 	cfg, err := m.loader.Load(context.Background(), m.runtime.Profile, region)
 	if err != nil {
 		return nil, err
 	}
+	prevCfg := m.cfg
+	prevRegion := m.runtime.Region
 	m.cfg = cfg
 	m.runtime.Region = region
 	cmds := []tea.Cmd{}
 	if err := m.activateService(m.runtime.Service); err != nil {
+		m.cfg = prevCfg
+		m.runtime.Region = prevRegion
 		return nil, err
 	}
 	if m.service != nil {

@@ -25,6 +25,14 @@ func NewLoader(endpoint string) Loader {
 	}
 }
 
+// NewTestLoader creates a Loader with a custom load function for testing.
+func NewTestLoader(fn loadConfigFunc, endpoint string) Loader {
+	return Loader{
+		load:     fn,
+		endpoint: endpoint,
+	}
+}
+
 // Load builds an aws.Config using optional profile and region overrides.
 func (l Loader) Load(ctx context.Context, profile, region string) (aws.Config, error) {
 	optFns := []func(*config.LoadOptions) error{}

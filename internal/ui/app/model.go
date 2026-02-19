@@ -8,6 +8,7 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/rs/zerolog"
 	awsx "github.com/sachamama/sacha/internal/aws"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/config"
 	"github.com/sachamama/sacha/internal/version"
 
@@ -25,6 +26,9 @@ type Model struct {
 
 	logger *zerolog.Logger
 
+	cache     *cache.Cache
+	accountID string
+
 	regionSelector  optionSelector
 	serviceSelector optionSelector
 
@@ -34,12 +38,15 @@ type Model struct {
 }
 
 func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime config.RuntimeConfig, cfg sdkaws.Config, logger *zerolog.Logger) (Model, error) {
+	accountID := awsx.ResolveAccountID(context.Background(), cfg, runtime.Profile)
 	m := Model{
-		loader:   loader,
-		services: services,
-		runtime:  runtime,
-		cfg:      cfg,
-		logger:   logger,
+		loader:    loader,
+		services:  services,
+		runtime:   runtime,
+		cfg:       cfg,
+		logger:    logger,
+		cache:     cache.New(),
+		accountID: accountID,
 	}
 	m.regionSelector = newOptionSelectorWithViews("Select Region", awsRegions, commonRegions)
 	m.serviceSelector = newOptionSelector("Select Service", serviceNames(services))
@@ -136,7 +143,9 @@ func (m *Model) activateService(name string) error {
 		return fmt.Errorf("unknown service %q; available services: %s", name, strings.Join(valid, ", "))
 	}
 	model, err := svc.Init(context.Background(), m.cfg, awsx.ServiceOptions{
-		Logger: newLoggerAdapter(m.logger),
+		Logger:    newLoggerAdapter(m.logger),
+		Cache:     m.cache,
+		AccountID: m.accountID,
 	})
 	if err != nil {
 		return err

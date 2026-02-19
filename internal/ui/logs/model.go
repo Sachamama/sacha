@@ -3,16 +3,17 @@ package logs
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/atotto/clipboard"
-	"github.com/sachamama/sacha/internal/logs"
-
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sachamama/sacha/internal/cache"
+	"github.com/sachamama/sacha/internal/logs"
 )
 
 const (
@@ -98,6 +99,10 @@ type Model struct {
 	loading        bool
 	loadingMore    bool
 
+	// Cache
+	cache    *cache.Cache
+	cacheKey cache.Key
+
 	searching  bool
 	search     textinput.Model
 	statusLine string
@@ -131,7 +136,7 @@ type Model struct {
 	filterByHL      bool            // when true, only show events matching highlight fields
 }
 
-func NewModel(client *logs.Client) Model {
+func NewModel(client *logs.Client, c *cache.Cache, cacheKey cache.Key) Model {
 	ti := textinput.New()
 	ti.Placeholder = "filter log groups"
 	ti.Prompt = "/ "
@@ -144,16 +149,28 @@ func NewModel(client *logs.Client) Model {
 	hi.Placeholder = ".level .message"
 	hi.Prompt = "highlight: "
 
-	return Model{
+	m := Model{
 		client:         client,
 		selected:       map[string]bool{},
 		loading:        true,
+		cache:          c,
+		cacheKey:       cacheKey,
 		search:         ti,
 		createInput:    ci,
 		highlightInput: hi,
 		pollInterval:   defaultPollInterval,
 		expandedEvent:  -1, // no event expanded
 	}
+	if c != nil {
+		if items, ok := c.Get(cacheKey); ok {
+			if groups, ok := items.([]logs.LogGroup); ok && len(groups) > 0 {
+				m.logGroups = groups
+				m.loading = false
+				m.statusLine = fmt.Sprintf("%d log groups (cached)", len(groups))
+			}
+		}
+	}
+	return m
 }
 
 func (m Model) Init() tea.Cmd {
@@ -175,6 +192,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.logGroups = msg.groups
 		m.nextGroupToken = msg.nextToken
+		sortLogGroups(m.logGroups)
+		m.updateCache()
 		if m.nextGroupToken != nil {
 			m.statusLine = fmt.Sprintf("Loaded %d log groups (more available)", len(msg.groups))
 		} else {
@@ -188,6 +207,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.logGroups = append(m.logGroups, msg.groups...)
 		m.nextGroupToken = msg.nextToken
+		sortLogGroups(m.logGroups)
+		m.updateCache()
 		if m.nextGroupToken != nil {
 			m.statusLine = fmt.Sprintf("Loaded %d log groups (more available)", len(m.logGroups))
 		} else {
@@ -557,6 +578,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "ctrl+r":
 			if !m.tailing {
+				if m.cache != nil {
+					m.cache.Delete(m.cacheKey)
+				}
 				m.logGroups = nil
 				m.nextGroupToken = nil
 				m.cursor = 0
@@ -718,6 +742,20 @@ func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	}
 	m.loadingMore = true
 	return m.loadMoreLogGroupsCmd()
+}
+
+// updateCache stores the current log groups in the cache.
+func (m *Model) updateCache() {
+	if m.cache != nil {
+		m.cache.Set(m.cacheKey, m.logGroups)
+	}
+}
+
+// sortLogGroups sorts log groups by Name (case-insensitive).
+func sortLogGroups(groups []logs.LogGroup) {
+	sort.Slice(groups, func(i, j int) bool {
+		return strings.ToLower(groups[i].Name) < strings.ToLower(groups[j].Name)
+	})
 }
 
 func (m Model) pollTailCmd() tea.Cmd {

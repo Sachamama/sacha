@@ -3,6 +3,7 @@ package dynamodb
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -10,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/dynamodb"
 )
 
@@ -37,6 +39,10 @@ type Model struct {
 	cursor     int
 	listOffset int
 
+	// Cache
+	cache    *cache.Cache
+	cacheKey cache.Key
+
 	// Scroll memory: saved position when entering a table
 	savedCursor     int
 	savedListOffset int
@@ -58,16 +64,28 @@ type Model struct {
 }
 
 // NewModel creates a new DynamoDB browser model.
-func NewModel(client *dynamodb.Client) Model {
+func NewModel(client *dynamodb.Client, c *cache.Cache, cacheKey cache.Key) Model {
 	ti := textinput.New()
 	ti.Placeholder = "filter"
 	ti.Prompt = "/ "
-	return Model{
+	m := Model{
 		client:       client,
 		search:       ti,
 		loading:      true,
 		expandedItem: -1,
+		cache:        c,
+		cacheKey:     cacheKey,
 	}
+	if c != nil {
+		if items, ok := c.Get(cacheKey); ok {
+			if tables, ok := items.([]dynamodb.Table); ok && len(tables) > 0 {
+				m.tables = tables
+				m.loading = false
+				m.statusLine = fmt.Sprintf("%d tables (cached)", len(tables))
+			}
+		}
+	}
+	return m
 }
 
 // Init initializes the model by loading tables.
@@ -91,6 +109,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tables = msg.tables
 		m.tableToken = msg.nextToken
+		sortTables(m.tables)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded %d tables", len(msg.tables))
 		return m, m.fetchDescriptionCmd()
 
@@ -102,6 +122,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tables = append(m.tables, msg.tables...)
 		m.tableToken = msg.nextToken
+		sortTables(m.tables)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded %d tables", len(m.tables))
 		return m, m.loadMoreIfNeeded()
 
@@ -162,6 +184,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tables = append(m.tables, msg.tables...)
 		m.tableToken = nil
+		sortTables(m.tables)
+		m.updateCache()
 		m.statusLine = fmt.Sprintf("Loaded all %d tables", len(m.tables))
 		return m, nil
 
@@ -299,6 +323,9 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.detailViewport.HalfPageDown()
 	case "ctrl+r":
 		if m.table == "" {
+			if m.cache != nil {
+				m.cache.Delete(m.cacheKey)
+			}
 			m.tables = nil
 			m.tableToken = nil
 			m.cursor = 0
@@ -569,6 +596,20 @@ func (m *Model) loadMoreIfNeeded() tea.Cmd {
 	}
 	m.loadingMore = true
 	return m.loadMoreItemsCmd()
+}
+
+// updateCache stores the current tables in the cache.
+func (m *Model) updateCache() {
+	if m.cache != nil {
+		m.cache.Set(m.cacheKey, m.tables)
+	}
+}
+
+// sortTables sorts tables by Name (case-insensitive).
+func sortTables(tables []dynamodb.Table) {
+	sort.Slice(tables, func(i, j int) bool {
+		return strings.ToLower(tables[i].Name) < strings.ToLower(tables[j].Name)
+	})
 }
 
 // Commands

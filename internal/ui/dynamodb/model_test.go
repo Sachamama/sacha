@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/dynamodb"
 )
 
 func newTestModel(tables []dynamodb.Table) Model {
-	m := NewModel(nil) // client not needed for direct state tests
+	m := NewModel(nil, nil, cache.Key{}) // client not needed for direct state tests
 	m.tables = tables
 	m.loading = false
 	m.width = 120
@@ -34,7 +35,7 @@ func sendMsg(m Model, msg tea.Msg) Model {
 }
 
 func TestNewModel(t *testing.T) {
-	m := NewModel(nil)
+	m := NewModel(nil, nil, cache.Key{})
 	if !m.loading {
 		t.Error("expected loading to be true")
 	}

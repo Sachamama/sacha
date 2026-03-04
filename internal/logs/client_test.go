@@ -539,6 +539,147 @@ func TestSetRetentionPolicy(t *testing.T) {
 	}
 }
 
+func TestListLogGroupsWithOpts_CrossAccount(t *testing.T) {
+	client := &Client{
+		api: &mockCloudWatchLogsAPI{
+			describeLogGroupsFn: func(ctx context.Context, params *cloudwatchlogs.DescribeLogGroupsInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+				if params.IncludeLinkedAccounts == nil || !*params.IncludeLinkedAccounts {
+					t.Error("expected IncludeLinkedAccounts to be true")
+				}
+				if len(params.AccountIdentifiers) != 1 || params.AccountIdentifiers[0] != "222222222222" {
+					t.Errorf("unexpected AccountIdentifiers: %v", params.AccountIdentifiers)
+				}
+				return &cloudwatchlogs.DescribeLogGroupsOutput{
+					LogGroups: []types.LogGroup{
+						{
+							LogGroupName: aws.String("/aws/lambda/func1"),
+							Arn:          aws.String("arn:aws:logs:us-east-1:222222222222:log-group:/aws/lambda/func1:*"),
+						},
+					},
+				}, nil
+			},
+		},
+	}
+
+	groups, _, err := client.ListLogGroupsWithOpts(context.Background(), nil, ListLogGroupsOpts{
+		IncludeLinkedAccounts: true,
+		AccountIdentifiers:    []string{"222222222222"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].Arn != "arn:aws:logs:us-east-1:222222222222:log-group:/aws/lambda/func1:*" {
+		t.Errorf("Arn = %q, want ARN with account 222222222222", groups[0].Arn)
+	}
+	if groups[0].AccountID != "222222222222" {
+		t.Errorf("AccountID = %q, want %q", groups[0].AccountID, "222222222222")
+	}
+}
+
+func TestListLogGroupsWithOpts_NoOpts(t *testing.T) {
+	client := &Client{
+		api: &mockCloudWatchLogsAPI{
+			describeLogGroupsFn: func(ctx context.Context, params *cloudwatchlogs.DescribeLogGroupsInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+				if params.IncludeLinkedAccounts != nil {
+					t.Error("expected IncludeLinkedAccounts to be nil for default opts")
+				}
+				if len(params.AccountIdentifiers) != 0 {
+					t.Error("expected no AccountIdentifiers for default opts")
+				}
+				return &cloudwatchlogs.DescribeLogGroupsOutput{
+					LogGroups: []types.LogGroup{
+						{LogGroupName: aws.String("/test/group")},
+					},
+				}, nil
+			},
+		},
+	}
+
+	groups, _, err := client.ListLogGroupsWithOpts(context.Background(), nil, ListLogGroupsOpts{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+}
+
+func TestFetchEvents_ARNIdentifier(t *testing.T) {
+	baseTime := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+	arnGroup := "arn:aws:logs:us-east-1:222222222222:log-group:/aws/lambda/func1:*"
+
+	client := &Client{
+		api: &mockCloudWatchLogsAPI{
+			filterLogEventsFn: func(ctx context.Context, params *cloudwatchlogs.FilterLogEventsInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.FilterLogEventsOutput, error) {
+				if params.LogGroupName != nil {
+					t.Error("expected LogGroupName to be nil for ARN-based query")
+				}
+				if params.LogGroupIdentifier == nil || *params.LogGroupIdentifier != arnGroup {
+					t.Errorf("expected LogGroupIdentifier = %q, got %v", arnGroup, params.LogGroupIdentifier)
+				}
+				return &cloudwatchlogs.FilterLogEventsOutput{
+					Events: []types.FilteredLogEvent{
+						{
+							Timestamp:     aws.Int64(baseTime.UnixMilli()),
+							LogStreamName: aws.String("stream1"),
+							Message:       aws.String("cross-account event"),
+						},
+					},
+				}, nil
+			},
+		},
+	}
+
+	events, _, err := client.FetchEvents(context.Background(), []string{arnGroup}, baseTime)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].LogGroup != arnGroup {
+		t.Errorf("LogGroup = %q, want %q", events[0].LogGroup, arnGroup)
+	}
+}
+
+func TestIsARN(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"arn:aws:logs:us-east-1:123456789012:log-group:/test:*", true},
+		{"/aws/lambda/func1", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		got := isARN(tt.input)
+		if got != tt.want {
+			t.Errorf("isARN(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestExtractAccountFromARN(t *testing.T) {
+	tests := []struct {
+		arn  string
+		want string
+	}{
+		{"arn:aws:logs:us-east-1:123456789012:log-group:/test:*", "123456789012"},
+		{"arn:aws:logs:eu-west-1:987654321098:log-group:/prod:*", "987654321098"},
+		{"invalid", ""},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		got := extractAccountFromARN(tt.arn)
+		if got != tt.want {
+			t.Errorf("extractAccountFromARN(%q) = %q, want %q", tt.arn, got, tt.want)
+		}
+	}
+}
+
 func TestListLogGroupsCreationTime(t *testing.T) {
 	creationMs := int64(1705312800000) // 2024-01-15T10:00:00Z
 

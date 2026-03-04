@@ -32,6 +32,6 @@ func (CloudWatchLogsService) Init(ctx context.Context, cfg sdkaws.Config, opts a
 		Region:    cfg.Region,
 		Service:   "cloudwatch-logs",
 	}
-	model := NewModel(client, opts.Cache, cacheKey)
+	model := NewModel(client, opts.Cache, cacheKey, opts.Monitoring, opts.AccountID)
 	return model, nil
 }

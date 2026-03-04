@@ -497,3 +497,24 @@ func (m Model) renderRetentionPicker() string {
 	fmt.Fprintln(b, dimText.Render("↑↓ move, enter select, esc cancel"))
 	return popupStyle.Render(b.String())
 }
+
+func (m Model) renderAccountSelector() string {
+	b := &strings.Builder{}
+	fmt.Fprintln(b, titleStyle.Render("Select Account"))
+	fmt.Fprintln(b, dimText.Render("View log groups from a linked account"))
+	fmt.Fprintln(b)
+	for i, opt := range m.accountOptions {
+		marker := "  "
+		if opt.id == m.selectedAccount {
+			marker = statusStyle.Render("● ")
+		}
+		if i == m.accountCursor {
+			fmt.Fprintf(b, "%s%s %s\n", marker, hoverPointer, cursorStyle.Render(opt.label))
+		} else {
+			fmt.Fprintf(b, "%s  %s\n", marker, opt.label)
+		}
+	}
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, dimText.Render("↑↓ move, enter select, esc cancel"))
+	return popupStyle.Render(b.String())
+}

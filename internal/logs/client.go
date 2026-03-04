@@ -3,6 +3,7 @@ package logs
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -31,9 +32,17 @@ func NewClient(cfg aws.Config) *Client {
 
 type LogGroup struct {
 	Name          string
+	Arn           string // full ARN, populated when cross-account is active
+	AccountID     string // source account ID, extracted from ARN
 	RetentionDays int32
 	StoredBytes   int64
 	CreationTime  time.Time
+}
+
+// ListLogGroupsOpts controls cross-account log group listing.
+type ListLogGroupsOpts struct {
+	IncludeLinkedAccounts bool
+	AccountIdentifiers    []string
 }
 
 type TailEvent struct {
@@ -45,10 +54,23 @@ type TailEvent struct {
 
 // ListLogGroups returns a page of log groups and the next token, if any.
 func (c *Client) ListLogGroups(ctx context.Context, nextToken *string) ([]LogGroup, *string, error) {
-	out, err := c.api.DescribeLogGroups(ctx, &cloudwatchlogs.DescribeLogGroupsInput{
+	return c.ListLogGroupsWithOpts(ctx, nextToken, ListLogGroupsOpts{})
+}
+
+// ListLogGroupsWithOpts returns a page of log groups with cross-account options.
+func (c *Client) ListLogGroupsWithOpts(ctx context.Context, nextToken *string, opts ListLogGroupsOpts) ([]LogGroup, *string, error) {
+	input := &cloudwatchlogs.DescribeLogGroupsInput{
 		NextToken: nextToken,
 		Limit:     aws.Int32(50),
-	})
+	}
+	if opts.IncludeLinkedAccounts {
+		input.IncludeLinkedAccounts = aws.Bool(true)
+	}
+	if len(opts.AccountIdentifiers) > 0 {
+		input.AccountIdentifiers = opts.AccountIdentifiers
+	}
+
+	out, err := c.api.DescribeLogGroups(ctx, input)
 	if err != nil {
 		return nil, nil, fmt.Errorf("describe log groups: %w", err)
 	}
@@ -59,8 +81,11 @@ func (c *Client) ListLogGroups(ctx context.Context, nextToken *string) ([]LogGro
 		if g.CreationTime != nil {
 			created = time.Unix(0, *g.CreationTime*int64(time.Millisecond))
 		}
+		arn := aws.ToString(g.Arn)
 		groups = append(groups, LogGroup{
 			Name:          aws.ToString(g.LogGroupName),
+			Arn:           arn,
+			AccountID:     extractAccountFromARN(arn),
 			RetentionDays: aws.ToInt32(g.RetentionInDays),
 			StoredBytes:   aws.ToInt64(g.StoredBytes),
 			CreationTime:  created,
@@ -87,11 +112,17 @@ func (c *Client) FetchEvents(ctx context.Context, groups []string, start time.Ti
 	nextStart := start
 
 	for _, group := range groups {
-		out, err := c.api.FilterLogEvents(ctx, &cloudwatchlogs.FilterLogEventsInput{
-			LogGroupName: aws.String(group),
-			StartTime:    aws.Int64(start.UnixMilli()),
-			Limit:        aws.Int32(100),
-		})
+		input := &cloudwatchlogs.FilterLogEventsInput{
+			StartTime: aws.Int64(start.UnixMilli()),
+			Limit:     aws.Int32(100),
+		}
+		// Use LogGroupIdentifier for ARNs (cross-account), LogGroupName for names.
+		if isARN(group) {
+			input.LogGroupIdentifier = aws.String(group)
+		} else {
+			input.LogGroupName = aws.String(group)
+		}
+		out, err := c.api.FilterLogEvents(ctx, input)
 		if err != nil {
 			return nil, start, fmt.Errorf("filter log events: %w", err)
 		}
@@ -149,4 +180,19 @@ func (c *Client) SetRetentionPolicy(ctx context.Context, name string, retentionD
 		return fmt.Errorf("put retention policy: %w", err)
 	}
 	return nil
+}
+
+// isARN returns true if the string looks like an AWS ARN.
+func isARN(s string) bool {
+	return strings.HasPrefix(s, "arn:")
+}
+
+// extractAccountFromARN extracts the account ID from an ARN.
+// Format: arn:aws:logs:REGION:ACCOUNT_ID:log-group:NAME
+func extractAccountFromARN(arn string) string {
+	parts := strings.Split(arn, ":")
+	if len(parts) >= 5 {
+		return parts[4]
+	}
+	return ""
 }

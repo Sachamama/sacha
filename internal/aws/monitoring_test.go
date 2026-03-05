@@ -11,7 +11,7 @@ import (
 )
 
 type mockOAMAPI struct {
-	listSinksFn        func(ctx context.Context, params *oam.ListSinksInput, optFns ...func(*oam.Options)) (*oam.ListSinksOutput, error)
+	listSinksFn         func(ctx context.Context, params *oam.ListSinksInput, optFns ...func(*oam.Options)) (*oam.ListSinksOutput, error)
 	listAttachedLinksFn func(ctx context.Context, params *oam.ListAttachedLinksInput, optFns ...func(*oam.Options)) (*oam.ListAttachedLinksOutput, error)
 }
 

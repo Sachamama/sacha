@@ -46,11 +46,11 @@ func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime conf
 	accountID := awsx.ResolveAccountID(context.Background(), cfg, runtime.Profile)
 	monitoring := awsx.DetectMonitoringAccount(context.Background(), cfg)
 	m := Model{
-		loader:    loader,
-		services:  services,
-		runtime:   runtime,
-		cfg:       cfg,
-		logger:    logger,
+		loader:     loader,
+		services:   services,
+		runtime:    runtime,
+		cfg:        cfg,
+		logger:     logger,
 		cache:      cache.New(),
 		accountID:  accountID,
 		monitoring: monitoring,

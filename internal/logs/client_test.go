@@ -600,7 +600,7 @@ func TestListLogGroupsWithLinkedAccounts(t *testing.T) {
 
 	opts := ListLogGroupsOptions{
 		IncludeLinkedAccounts: true,
-		AccountIdentifiers:   []string{"222222222222"},
+		AccountIdentifiers:    []string{"222222222222"},
 	}
 	groups, _, err := client.ListLogGroups(context.Background(), nil, opts)
 	if err != nil {

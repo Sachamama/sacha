@@ -26,8 +26,9 @@ type Model struct {
 
 	logger *zerolog.Logger
 
-	cache     *cache.Cache
-	accountID string
+	cache      *cache.Cache
+	accountID  string
+	monitoring awsx.MonitoringInfo
 
 	regionSelector  optionSelector
 	serviceSelector optionSelector
@@ -43,14 +44,16 @@ func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime conf
 		runtime.Region = cfg.Region
 	}
 	accountID := awsx.ResolveAccountID(context.Background(), cfg, runtime.Profile)
+	monitoring := awsx.DetectMonitoringAccount(context.Background(), cfg)
 	m := Model{
 		loader:    loader,
 		services:  services,
 		runtime:   runtime,
 		cfg:       cfg,
 		logger:    logger,
-		cache:     cache.New(),
-		accountID: accountID,
+		cache:      cache.New(),
+		accountID:  accountID,
+		monitoring: monitoring,
 	}
 	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
 	m.serviceSelector = newOptionSelector(serviceNames(services))
@@ -120,6 +123,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	header := fmt.Sprintf("profile: %s | region: %s | service: %s", emptyIf(m.runtime.Profile, "default"), emptyIf(m.runtime.Region, "sdk-default"), m.runtime.Service)
+	if m.monitoring.IsMonitoring {
+		acctLabel := "all accounts"
+		if sa, ok := m.service.(accountAware); ok {
+			if sel := sa.SelectedAccount(); sel != "" {
+				acctLabel = sel
+			}
+		}
+		header += fmt.Sprintf(" | monitoring (%s)", acctLabel)
+	}
 	if m.regionSelector.active {
 		return m.overlayView(header, m.regionSelector.View(minWidth(m.width, 60)))
 	}
@@ -151,9 +163,10 @@ func (m *Model) activateService(name string) error {
 		return fmt.Errorf("unknown service %q; available services: %s", name, strings.Join(valid, ", "))
 	}
 	model, err := svc.Init(context.Background(), m.cfg, awsx.ServiceOptions{
-		Logger:    newLoggerAdapter(m.logger),
-		Cache:     m.cache,
-		AccountID: m.accountID,
+		Logger:     newLoggerAdapter(m.logger),
+		Cache:      m.cache,
+		AccountID:  m.accountID,
+		Monitoring: m.monitoring,
 	})
 	if err != nil {
 		return err
@@ -264,6 +277,10 @@ func isSearching(m tea.Model) bool {
 		return s.Searching()
 	}
 	return false
+}
+
+type accountAware interface {
+	SelectedAccount() string
 }
 
 type statusProvider interface {

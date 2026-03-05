@@ -31,6 +31,8 @@ func NewClient(cfg aws.Config) *Client {
 
 type LogGroup struct {
 	Name          string
+	ARN           string
+	AccountID     string
 	RetentionDays int32
 	StoredBytes   int64
 	CreationTime  time.Time
@@ -43,12 +45,27 @@ type TailEvent struct {
 	Message   string
 }
 
+// ListLogGroupsOptions configures cross-account log group listing.
+type ListLogGroupsOptions struct {
+	IncludeLinkedAccounts bool
+	AccountIdentifiers    []string
+}
+
 // ListLogGroups returns a page of log groups and the next token, if any.
-func (c *Client) ListLogGroups(ctx context.Context, nextToken *string) ([]LogGroup, *string, error) {
-	out, err := c.api.DescribeLogGroups(ctx, &cloudwatchlogs.DescribeLogGroupsInput{
+func (c *Client) ListLogGroups(ctx context.Context, nextToken *string, opts ...ListLogGroupsOptions) ([]LogGroup, *string, error) {
+	input := &cloudwatchlogs.DescribeLogGroupsInput{
 		NextToken: nextToken,
 		Limit:     aws.Int32(50),
-	})
+	}
+
+	if len(opts) > 0 && opts[0].IncludeLinkedAccounts {
+		input.IncludeLinkedAccounts = aws.Bool(true)
+		if len(opts[0].AccountIdentifiers) > 0 {
+			input.AccountIdentifiers = opts[0].AccountIdentifiers
+		}
+	}
+
+	out, err := c.api.DescribeLogGroups(ctx, input)
 	if err != nil {
 		return nil, nil, fmt.Errorf("describe log groups: %w", err)
 	}
@@ -59,8 +76,11 @@ func (c *Client) ListLogGroups(ctx context.Context, nextToken *string) ([]LogGro
 		if g.CreationTime != nil {
 			created = time.Unix(0, *g.CreationTime*int64(time.Millisecond))
 		}
+		arn := aws.ToString(g.LogGroupArn)
 		groups = append(groups, LogGroup{
 			Name:          aws.ToString(g.LogGroupName),
+			ARN:           arn,
+			AccountID:     extractAccountFromARN(arn),
 			RetentionDays: aws.ToInt32(g.RetentionInDays),
 			StoredBytes:   aws.ToInt64(g.StoredBytes),
 			CreationTime:  created,
@@ -68,6 +88,33 @@ func (c *Client) ListLogGroups(ctx context.Context, nextToken *string) ([]LogGro
 	}
 
 	return groups, out.NextToken, nil
+}
+
+// extractAccountFromARN extracts the account ID from an ARN.
+// ARN format: arn:aws:logs:region:account-id:log-group:name
+func extractAccountFromARN(arn string) string {
+	parts := splitARN(arn)
+	if len(parts) >= 5 {
+		return parts[4]
+	}
+	return ""
+}
+
+func splitARN(arn string) []string {
+	if arn == "" {
+		return nil
+	}
+	// Split on ":"
+	var parts []string
+	start := 0
+	for i := 0; i < len(arn); i++ {
+		if arn[i] == ':' {
+			parts = append(parts, arn[start:i])
+			start = i + 1
+		}
+	}
+	parts = append(parts, arn[start:])
+	return parts
 }
 
 // CreateLogGroup creates a new log group with the given name.

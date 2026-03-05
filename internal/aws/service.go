@@ -17,9 +17,10 @@ type Service interface {
 
 // ServiceOptions contains dependencies shared with services.
 type ServiceOptions struct {
-	Logger    ServiceLogger
-	Cache     *cache.Cache
-	AccountID string
+	Logger     ServiceLogger
+	Cache      *cache.Cache
+	AccountID  string
+	Monitoring MonitoringInfo
 }
 
 // ServiceLogger is a narrow logging interface used by services.

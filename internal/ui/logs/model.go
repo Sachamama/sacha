@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	awsx "github.com/sachamama/sacha/internal/aws"
 	"github.com/sachamama/sacha/internal/cache"
 	"github.com/sachamama/sacha/internal/logs"
 )
@@ -134,9 +135,16 @@ type Model struct {
 	highlightInput  textinput.Model // text input for entering highlight expression
 	enteringHL      bool            // whether the highlight input is active
 	filterByHL      bool            // when true, only show events matching highlight fields
+
+	// Cross-account monitoring
+	monitoring       awsx.MonitoringInfo
+	accountOptions   []string // "All Accounts" + linked account IDs
+	selectedAccount  string   // "" means all accounts, otherwise an account ID
+	selectingAccount bool     // whether the account selector is active
+	accountCursor    int
 }
 
-func NewModel(client *logs.Client, c *cache.Cache, cacheKey cache.Key) Model {
+func NewModel(client *logs.Client, c *cache.Cache, cacheKey cache.Key, monitoring ...awsx.MonitoringInfo) Model {
 	ti := textinput.New()
 	ti.Placeholder = "filter log groups"
 	ti.Prompt = "/ "
@@ -149,6 +157,19 @@ func NewModel(client *logs.Client, c *cache.Cache, cacheKey cache.Key) Model {
 	hi.Placeholder = ".level .message"
 	hi.Prompt = "highlight: "
 
+	var mon awsx.MonitoringInfo
+	if len(monitoring) > 0 {
+		mon = monitoring[0]
+	}
+
+	var accountOpts []string
+	if mon.IsMonitoring {
+		accountOpts = append(accountOpts, "All Accounts")
+		for _, la := range mon.LinkedAccounts {
+			accountOpts = append(accountOpts, la.AccountID)
+		}
+	}
+
 	m := Model{
 		client:         client,
 		selected:       map[string]bool{},
@@ -160,6 +181,8 @@ func NewModel(client *logs.Client, c *cache.Cache, cacheKey cache.Key) Model {
 		highlightInput: hi,
 		pollInterval:   defaultPollInterval,
 		expandedEvent:  -1, // no event expanded
+		monitoring:     mon,
+		accountOptions: accountOpts,
 	}
 	if c != nil {
 		if items, ok := c.Get(cacheKey); ok {
@@ -309,6 +332,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc", "q":
 				m.settingRetention = false
 				m.statusLine = ""
+			}
+			return m, nil
+		}
+
+		if m.selectingAccount {
+			switch msg.String() {
+			case "up", "k":
+				if m.accountCursor > 0 {
+					m.accountCursor--
+				}
+			case "down", "j":
+				if m.accountCursor < len(m.accountOptions)-1 {
+					m.accountCursor++
+				}
+			case "enter":
+				m.selectingAccount = false
+				if m.accountCursor == 0 {
+					m.selectedAccount = "" // "All Accounts"
+				} else {
+					m.selectedAccount = m.accountOptions[m.accountCursor]
+				}
+				// Reload log groups with the new account filter
+				if m.cache != nil {
+					m.cache.Delete(m.cacheKey)
+				}
+				m.logGroups = nil
+				m.nextGroupToken = nil
+				m.cursor = 0
+				m.listOffset = 0
+				m.loading = true
+				m.statusLine = "Loading log groups..."
+				return m, m.loadLogGroupsCmd()
+			case "esc", "q":
+				m.selectingAccount = false
 			}
 			return m, nil
 		}
@@ -510,6 +567,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.retentionCursor = 0
 				}
 			}
+		case "m":
+			// Open account selector (only in monitoring mode, not while tailing)
+			if m.monitoring.IsMonitoring && !m.tailing && len(m.accountOptions) > 0 {
+				m.selectingAccount = true
+				m.accountCursor = 0
+				// Pre-select current account
+				for i, opt := range m.accountOptions {
+					if (m.selectedAccount == "" && i == 0) || opt == m.selectedAccount {
+						m.accountCursor = i
+						break
+					}
+				}
+			}
 		case "t":
 			if !m.tailing && len(m.selectedGroups()) > 0 {
 				m.tailing = true
@@ -700,6 +770,12 @@ func (m Model) View() string {
 			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
 	}
 
+	if m.selectingAccount {
+		popup := m.renderAccountPicker()
+		view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
+			lipgloss.WithWhitespaceBackground(lipgloss.Color("0")))
+	}
+
 	if evts := m.filteredEvents(); m.expandedEvent >= 0 && m.expandedEvent < len(evts) {
 		popup := m.renderExpandedEvent(evts[m.expandedEvent])
 		view = lipgloss.Place(m.width, m.height-4, lipgloss.Center, lipgloss.Center, popup,
@@ -709,10 +785,22 @@ func (m Model) View() string {
 	return view
 }
 
+func (m Model) listOpts() []logs.ListLogGroupsOptions {
+	if !m.monitoring.IsMonitoring {
+		return nil
+	}
+	opts := logs.ListLogGroupsOptions{IncludeLinkedAccounts: true}
+	if m.selectedAccount != "" {
+		opts.AccountIdentifiers = []string{m.selectedAccount}
+	}
+	return []logs.ListLogGroupsOptions{opts}
+}
+
 func (m Model) loadLogGroupsCmd() tea.Cmd {
+	opts := m.listOpts()
 	return func() tea.Msg {
 		ctx := context.Background()
-		groups, nextToken, err := m.client.ListLogGroups(ctx, nil)
+		groups, nextToken, err := m.client.ListLogGroups(ctx, nil, opts...)
 		if err != nil {
 			return logGroupsLoadedMsg{err: err}
 		}
@@ -722,9 +810,10 @@ func (m Model) loadLogGroupsCmd() tea.Cmd {
 
 func (m Model) loadMoreLogGroupsCmd() tea.Cmd {
 	token := m.nextGroupToken
+	opts := m.listOpts()
 	return func() tea.Msg {
 		ctx := context.Background()
-		groups, nextToken, err := m.client.ListLogGroups(ctx, token)
+		groups, nextToken, err := m.client.ListLogGroups(ctx, token, opts...)
 		return moreLogGroupsLoadedMsg{groups: groups, nextToken: nextToken, err: err}
 	}
 }
@@ -873,7 +962,13 @@ func (m Model) Tailing() bool {
 
 // Searching reports whether the model has an active text input or overlay.
 func (m Model) Searching() bool {
-	return m.searching || m.creating || m.deleting || m.settingRetention || m.enteringHL
+	return m.searching || m.creating || m.deleting || m.settingRetention || m.enteringHL || m.selectingAccount
+}
+
+// SelectedAccount returns the selected account ID for cross-account filtering.
+// Returns empty string when showing all accounts.
+func (m Model) SelectedAccount() string {
+	return m.selectedAccount
 }
 
 // StatusHelp returns context-aware help text for the status bar.
@@ -896,6 +991,9 @@ func (m Model) StatusHelp() string {
 	if m.enteringHL {
 		return "enter apply, esc cancel — use jq syntax: .level .message"
 	}
+	if m.selectingAccount {
+		return "↑↓ move, enter select, esc cancel"
+	}
 	if m.tailing {
 		hlInfo := ""
 		if len(m.highlightFields) > 0 {
@@ -915,7 +1013,11 @@ func (m Model) StatusHelp() string {
 		}
 		return fmt.Sprintf("↑↓ move, enter expand, y copy%s, tab/← switch, f fullscreen, x/q stop", hlInfo)
 	}
-	return "↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail, y copy, ctrl+r refresh"
+	help := "↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail, y copy, ctrl+r refresh"
+	if m.monitoring.IsMonitoring {
+		help += ", m account"
+	}
+	return help
 }
 
 func (m *Model) setViewportSize(bodyHeight int) {

@@ -575,3 +575,66 @@ func TestListLogGroupsCreationTime(t *testing.T) {
 		t.Errorf("CreationTime = %v, want %v", groups[0].CreationTime, expected)
 	}
 }
+
+func TestListLogGroupsWithLinkedAccounts(t *testing.T) {
+	client := &Client{
+		api: &mockCloudWatchLogsAPI{
+			describeLogGroupsFn: func(ctx context.Context, params *cloudwatchlogs.DescribeLogGroupsInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+				if params.IncludeLinkedAccounts == nil || !*params.IncludeLinkedAccounts {
+					t.Error("expected IncludeLinkedAccounts to be true")
+				}
+				if len(params.AccountIdentifiers) != 1 || params.AccountIdentifiers[0] != "222222222222" {
+					t.Errorf("expected AccountIdentifiers [222222222222], got %v", params.AccountIdentifiers)
+				}
+				return &cloudwatchlogs.DescribeLogGroupsOutput{
+					LogGroups: []types.LogGroup{
+						{
+							LogGroupName: aws.String("/aws/lambda/cross-account-func"),
+							LogGroupArn:  aws.String("arn:aws:logs:us-east-1:222222222222:log-group:/aws/lambda/cross-account-func"),
+						},
+					},
+				}, nil
+			},
+		},
+	}
+
+	opts := ListLogGroupsOptions{
+		IncludeLinkedAccounts: true,
+		AccountIdentifiers:   []string{"222222222222"},
+	}
+	groups, _, err := client.ListLogGroups(context.Background(), nil, opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+
+	if groups[0].AccountID != "222222222222" {
+		t.Errorf("AccountID = %q, want %q", groups[0].AccountID, "222222222222")
+	}
+
+	if groups[0].ARN != "arn:aws:logs:us-east-1:222222222222:log-group:/aws/lambda/cross-account-func" {
+		t.Errorf("unexpected ARN: %s", groups[0].ARN)
+	}
+}
+
+func TestExtractAccountFromARN(t *testing.T) {
+	tests := []struct {
+		arn  string
+		want string
+	}{
+		{"arn:aws:logs:us-east-1:123456789012:log-group:/test", "123456789012"},
+		{"arn:aws:logs:eu-west-1:999999999999:log-group:/my/group:*", "999999999999"},
+		{"", ""},
+		{"not-an-arn", ""},
+	}
+
+	for _, tt := range tests {
+		got := extractAccountFromARN(tt.arn)
+		if got != tt.want {
+			t.Errorf("extractAccountFromARN(%q) = %q, want %q", tt.arn, got, tt.want)
+		}
+	}
+}

@@ -187,6 +187,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.setViewportSize(m.bodyHeight())
 		m.ensureCursorVisible()
+		if m.expandedEvent >= 0 {
+			evts := m.filteredEvents()
+			if m.expandedEvent < len(evts) {
+				yOffset := m.expandedView.YOffset
+				m.expandedView = initExpandedView(evts[m.expandedEvent], m.width, m.height)
+				m.expandedView.SetYOffset(yOffset)
+			}
+		}
 	case logGroupsLoadedMsg:
 		m.loading = false
 		if msg.err != nil {
@@ -365,6 +373,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.expandedView.HalfPageUp()
 			case "pgdn":
 				m.expandedView.HalfPageDown()
+			case "g":
+				m.expandedView.GotoTop()
+			case "G":
+				m.expandedView.GotoBottom()
+			case "y":
+				evts := m.filteredEvents()
+				if m.expandedEvent < len(evts) {
+					msg := evts[m.expandedEvent].Message
+					_ = clipboard.WriteAll(msg)
+					m.statusLine = fmt.Sprintf("Copied event (%d chars)", len(msg))
+				}
 			}
 			return m, nil
 		}
@@ -879,7 +898,7 @@ func (m Model) Searching() bool {
 // StatusHelp returns context-aware help text for the status bar.
 func (m Model) StatusHelp() string {
 	if m.expandedEvent >= 0 {
-		return "↑↓ scroll, pgup/pgdn page, esc close"
+		return "↑↓ scroll, pgup/pgdn page, g/G top/bottom, y copy, esc close"
 	}
 	if m.deleting {
 		return "y confirm delete, n/esc cancel"

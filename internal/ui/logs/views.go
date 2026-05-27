@@ -175,6 +175,10 @@ func (m Model) renderGroupDetails() string {
 	fmt.Fprintln(b)
 	fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Name:"), g.Name)
 
+	if g.AccountID != "" {
+		fmt.Fprintf(b, "%s  %s\n", labelStyle.Render("Account:"), g.AccountID)
+	}
+
 	if g.RetentionDays > 0 {
 		fmt.Fprintf(b, "%s  %d days\n", labelStyle.Render("Retention:"), g.RetentionDays)
 	} else {
@@ -491,6 +495,32 @@ func (m Model) renderRetentionPicker() string {
 			fmt.Fprintf(b, "  %s %s\n", hoverPointer, cursorStyle.Render(opt.label))
 		} else {
 			fmt.Fprintf(b, "    %s\n", opt.label)
+		}
+	}
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, dimText.Render("↑↓ move, enter select, esc cancel"))
+	return popupStyle.Render(b.String())
+}
+
+func (m Model) renderAccountPicker() string {
+	b := &strings.Builder{}
+	fmt.Fprintln(b, titleStyle.Render("Select Account"))
+	fmt.Fprintln(b, dimText.Render("Filter log groups by source account"))
+	fmt.Fprintln(b)
+	for i, opt := range m.accountOptions {
+		label := opt
+		if i == 0 {
+			// "All Accounts" option
+			label = opt
+		}
+		// Show current selection
+		if (m.selectedAccount == "" && i == 0) || opt == m.selectedAccount {
+			label += " ●"
+		}
+		if i == m.accountCursor {
+			fmt.Fprintf(b, "  %s %s\n", hoverPointer, cursorStyle.Render(label))
+		} else {
+			fmt.Fprintf(b, "    %s\n", label)
 		}
 	}
 	fmt.Fprintln(b)

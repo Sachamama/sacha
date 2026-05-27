@@ -389,6 +389,8 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - Accessed by pressing `enter` or `space` on a selected log event while tailing
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
+- `g`/`G` - Jump to top/bottom
+- `y` - Copy event message to clipboard
 - `esc` - Close popup
 
 ### S3 (`internal/ui/s3/`)

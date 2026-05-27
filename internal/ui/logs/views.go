@@ -426,7 +426,7 @@ func (m Model) renderExpandedEvent(e logs.TailEvent) string {
 	fmt.Fprintln(b, dimText.Render("Message:"))
 	fmt.Fprintln(b, m.expandedView.View())
 	fmt.Fprintln(b)
-	fmt.Fprintln(b, dimText.Render("↑↓/j/k scroll, pgup/pgdn page, esc close"))
+	fmt.Fprintln(b, dimText.Render("↑↓/j/k scroll, pgup/pgdn page, g/G top/bottom, y copy, esc close"))
 
 	// Size popup based on content
 	maxWidth := m.width - 10

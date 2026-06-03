@@ -364,9 +364,9 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - Left panel (groups): search, select, toggle all functionality remains active
   - **Dynamic refresh**: Changing log group selection (via `space` or `a`) while tailing automatically clears events and restarts tailing with new selection
 - Right panel (tail): event navigation, expand, highlight, filter
-- Plain view columns: TIMESTAMP (relative), GROUP (short name), MESSAGE
+- Plain view columns: TIMESTAMP (local time), GROUP (short name), MESSAGE
 - Log group names show only the last path segment (e.g., `/aws/lambda/my-func` → `my-func`)
-- Timestamps: first event shows `HH:MM:SS`, subsequent events show relative offset (`+1.5s`, `+2m30s`, `+1h5m`)
+- Timestamps: each event shows `HH:MM` in the local timezone
 - `↑/↓` or `j/k` - Navigate within focused panel
 - `enter` or `space` - Expand selected event (popup with formatted JSON) when tail panel focused
 - `H` - Open highlight input (jq-style field paths, e.g. `.level .message .statusCode`)

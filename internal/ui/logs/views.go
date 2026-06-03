@@ -213,24 +213,9 @@ func shortGroupName(name string) string {
 	return name
 }
 
-// relativeTimestamp formats a timestamp relative to a base time.
-// The first event shows the full HH:MM:SS, subsequent events show +Xs offset.
-func relativeTimestamp(ts, base time.Time) string {
-	if ts.Equal(base) {
-		return ts.Format("15:04:05")
-	}
-	diff := ts.Sub(base)
-	secs := diff.Seconds()
-	if secs < 0 {
-		return ts.Format("15:04:05")
-	}
-	if secs < 60 {
-		return fmt.Sprintf("+%.1fs", secs)
-	}
-	if secs < 3600 {
-		return fmt.Sprintf("+%.0fm%.0fs", secs/60, float64(int(secs)%60))
-	}
-	return fmt.Sprintf("+%.0fh%.0fm", secs/3600, float64(int(secs)%3600)/60)
+// localTimestamp formats a timestamp as HH:MM in the local timezone.
+func localTimestamp(ts time.Time) string {
+	return ts.Local().Format("15:04")
 }
 
 // highlightMessage applies highlighting to a message for the given jq-style field paths.
@@ -265,19 +250,8 @@ func highlightMessage(msg string, fields []string) string {
 func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bool, scrollX int, highlightFields []string) string {
 	var b strings.Builder
 
-	// Find the min (earliest) timestamp as the base for relative display
-	var baseTime time.Time
-	if len(events) > 0 {
-		baseTime = events[0].Timestamp
-		for _, e := range events[1:] {
-			if e.Timestamp.Before(baseTime) {
-				baseTime = e.Timestamp
-			}
-		}
-	}
-
 	// Calculate column widths
-	timeWidth := 8 // enough for "HH:MM:SS" or "+XXmXXs"
+	timeWidth := 5 // enough for "HH:MM"
 	groupWidth := 20
 	separators := 6 // " │ " twice
 	pointer := 1    // "▶" or " "
@@ -287,7 +261,7 @@ func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bo
 	}
 
 	for i, e := range events {
-		ts := padRight(relativeTimestamp(e.Timestamp, baseTime), timeWidth)
+		ts := padRight(localTimestamp(e.Timestamp), timeWidth)
 		group := padRight(truncate(shortGroupName(e.LogGroup), groupWidth), groupWidth)
 		msg := strings.TrimSpace(e.Message)
 		msg = highlightMessage(msg, highlightFields)

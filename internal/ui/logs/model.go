@@ -695,29 +695,60 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if len(msg.events) > 0 {
 			m.tailStart = msg.nextStart
-			m.events = append(m.events, msg.events...)
-			if len(m.events) > 1000 {
-				trimmed := len(m.events) - 1000
-				m.events = m.events[trimmed:]
-				if !m.autoScroll {
-					m.eventCursor -= trimmed
-					if m.eventCursor < 0 {
-						m.eventCursor = 0
-					}
+
+			// When following, stay pinned to the latest event. Otherwise the
+			// user has scrolled up to inspect older logs, so preserve their
+			// position: anchor on the event currently under the cursor and the
+			// screen row it occupies. New events are appended at the bottom and
+			// the buffer is trimmed from the front once it grows past the cap —
+			// both shift indices, so anchoring on the event itself (rather than
+			// a raw index) keeps the view stable across either change.
+			follow := m.autoScroll
+			var anchor logs.TailEvent
+			var haveAnchor bool
+			var anchorRow int
+			if !follow {
+				evts := m.filteredEvents()
+				if m.eventCursor >= 0 && m.eventCursor < len(evts) {
+					anchor = evts[m.eventCursor]
+					haveAnchor = true
+					anchorRow = m.eventCursor + m.eventContentOffset() - m.view.YOffset
 				}
 			}
-			// Auto-scroll to latest events when autoScroll is enabled
+
+			m.events = append(m.events, msg.events...)
+			if len(m.events) > 1000 {
+				m.events = m.events[len(m.events)-1000:]
+			}
+
 			evts := m.filteredEvents()
-			if m.autoScroll {
+			if follow {
 				m.eventCursor = len(evts) - 1
-			} else if m.eventCursor >= len(evts) {
-				m.eventCursor = len(evts) - 1
+				if m.eventCursor < 0 {
+					m.eventCursor = 0
+				}
+				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
+				m.ensureEventCursorVisible()
+			} else {
+				if haveAnchor {
+					if idx := indexOfEvent(evts, anchor); idx >= 0 {
+						m.eventCursor = idx
+					} else {
+						// The anchored event was trimmed off the top.
+						m.eventCursor = 0
+						anchorRow = 0
+					}
+				}
+				if m.eventCursor > len(evts)-1 {
+					m.eventCursor = len(evts) - 1
+				}
+				if m.eventCursor < 0 {
+					m.eventCursor = 0
+				}
+				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
+				m.view.SetYOffset(m.eventCursor + m.eventContentOffset() - anchorRow)
+				m.ensureEventCursorVisible()
 			}
-			if m.eventCursor < 0 {
-				m.eventCursor = 0
-			}
-			m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
-			m.ensureEventCursorVisible()
 		}
 		if m.tailing {
 			return m, tea.Tick(m.pollInterval, func(time.Time) tea.Msg { return pollTailMsg{} })
@@ -961,10 +992,25 @@ func (m Model) selectedCount() int {
 	return count
 }
 
+// indexOfEvent returns the index of target within events, or -1 if absent.
+// Used to re-locate the cursor's anchor event after the tail buffer is
+// appended to or trimmed.
+func indexOfEvent(events []logs.TailEvent, target logs.TailEvent) int {
+	for i := range events {
+		if events[i] == target {
+			return i
+		}
+	}
+	return -1
+}
+
 func (m Model) getCopyText() string {
 	// When tailing and focused on tail panel, copy the selected event message
-	if m.tailing && m.focus == panelTail && len(m.events) > 0 && m.eventCursor < len(m.events) {
-		return m.events[m.eventCursor].Message
+	if m.tailing && m.focus == panelTail {
+		evts := m.filteredEvents()
+		if m.eventCursor >= 0 && m.eventCursor < len(evts) {
+			return evts[m.eventCursor].Message
+		}
 	}
 	// Otherwise copy the log group name under cursor
 	groups := m.filteredGroups()

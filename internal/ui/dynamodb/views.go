@@ -191,10 +191,9 @@ func (m Model) renderRight() string {
 
 	fmt.Fprint(b, m.detailViewport.View())
 
-	// Show scroll hint when content overflows
+	// Show truncation hint when content overflows the detail pane.
 	if m.detailViewport.TotalLineCount() > m.detailViewport.VisibleLineCount() {
-		pct := int(m.detailViewport.ScrollPercent() * 100)
-		fmt.Fprintf(b, "\n%s", dimText.Render(fmt.Sprintf("  ↕ %d%% (pgup/pgdn)", pct)))
+		fmt.Fprintf(b, "\n%s", dimText.Render("  ↓ more details below"))
 	}
 
 	return b.String()
@@ -335,7 +334,7 @@ func (m Model) renderExpandedItem() string {
 	fmt.Fprintln(b)
 	fmt.Fprintln(b, m.expandedView.View())
 	fmt.Fprintln(b)
-	fmt.Fprintln(b, dimText.Render("↑↓/j/k scroll, pgup/pgdn page, esc close"))
+	fmt.Fprintln(b, dimText.Render("↑↓/j/k scroll, pgup/pgdn page, home/end top/bottom, esc close"))
 
 	maxWidth := m.width - 10
 	if maxWidth > 100 {

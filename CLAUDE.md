@@ -341,6 +341,15 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - `ctrl+r` - Refresh current view (reload from AWS)
 - `ctrl+c` - Quit
 
+### Global List & Scroll Navigation
+
+These keys work in every list view and scrollable popup/preview:
+- `pgup`/`pgdn` (`PageUp`/`PageDown`) - Move a full page up/down (cursor pages in lists; viewport pages in popups)
+- `home` - Jump to the first item / top of the popup
+- `end` - Jump to the last item / bottom of the popup
+
+In list views, page-down and `end` trigger lazy-loading of the next page when the cursor lands near the end, mirroring `↓`/`j`. Implemented per model via a `jumpCursor` helper (and `jumpGroupCursor`/`jumpEventCursor` in logs).
+
 ### CloudWatch Logs (`internal/ui/logs/`)
 
 **Log Groups View (default)**
@@ -389,7 +398,7 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - Accessed by pressing `enter` or `space` on a selected log event while tailing
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
-- `g`/`G` - Jump to top/bottom
+- `g`/`G` or `home`/`end` - Jump to top/bottom
 - `y` - Copy event message to clipboard
 - `esc` - Close popup
 
@@ -415,6 +424,8 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 
 **Preview Mode**
 - `↑/↓` - Scroll
+- `pgup/pgdn` - Page up/down
+- `home`/`end` - Jump to top/bottom
 - `p/esc` - Close preview
 
 ### DynamoDB (`internal/ui/dynamodb/`)
@@ -438,6 +449,7 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - Accessed by pressing `enter` or `space` on a selected item
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
+- `home`/`end` - Jump to top/bottom
 - `esc` - Close popup
 
 ### Lambda (`internal/ui/lambda/`)
@@ -453,6 +465,7 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - Accessed by pressing `enter` or `space` on a selected function
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
+- `home`/`end` - Jump to top/bottom
 - `esc` - Close popup
 
 ### SSM Parameter Store (`internal/ui/ssm/`)
@@ -468,6 +481,7 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 - Accessed by pressing `enter` or `space` on a leaf parameter
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
+- `home`/`end` - Jump to top/bottom
 - `esc` - Close popup
 
 ### SQS (`internal/ui/sqs/`)
@@ -488,6 +502,7 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 **Expanded Popup (queue or message)**
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
+- `home`/`end` - Jump to top/bottom
 - `esc` - Close popup
 
 ### EC2 (`internal/ui/ec2/`)
@@ -502,4 +517,5 @@ When users navigate into a sub-view (e.g., opening a DynamoDB table, entering an
 **Expanded Instance Popup**
 - `↑/↓` or `j/k` - Scroll up/down
 - `pgup/pgdn` - Page up/down
+- `home`/`end` - Jump to top/bottom
 - `esc` - Close popup

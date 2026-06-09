@@ -271,8 +271,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "pgup":
 			m.previewView.PageUp()
 			return m, nil
-		case "pgdn":
+		case "pgdown", "pgdn":
 			m.previewView.PageDown()
+			return m, nil
+		case "home":
+			m.previewView.GotoTop()
+			return m, nil
+		case "end":
+			m.previewView.GotoBottom()
 			return m, nil
 		case "p", "esc":
 			m.showPreview = false
@@ -303,6 +309,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
+	case "pgup":
+		return m, m.jumpCursor(m.cursor - m.listHeight())
+	case "pgdown", "pgdn":
+		return m, m.jumpCursor(m.cursor + m.listHeight())
+	case "home":
+		return m, m.jumpCursor(0)
+	case "end":
+		return m, m.jumpCursor(m.maxCursorIndex())
 	case "enter":
 		return m.handleEnter()
 	case "backspace", "h", "esc":
@@ -451,6 +465,31 @@ func (m *Model) clampCursor() {
 		m.cursor = 0
 	}
 	m.ensureCursorVisible()
+}
+
+// jumpCursor moves the cursor to idx (clamped to the list bounds), updates
+// scroll visibility, and returns the command to refresh the right pane,
+// lazy-loading the next page of objects when the cursor lands near the end.
+// Used by page and home/end navigation.
+func (m *Model) jumpCursor(idx int) tea.Cmd {
+	maxIdx := m.maxCursorIndex()
+	if idx > maxIdx {
+		idx = maxIdx
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if idx == m.cursor {
+		return nil
+	}
+	m.cursor = idx
+	m.ensureCursorVisible()
+	cmd := m.onCursorMove()
+	if m.bucket != "" && m.nextToken != nil && !m.loadingMore && m.cursor >= len(m.filteredObjects())-5 {
+		m.loadingMore = true
+		return tea.Batch(cmd, m.loadMoreCmd())
+	}
+	return cmd
 }
 
 func (m Model) currentObjectKey() string {
@@ -898,7 +937,7 @@ func (m Model) StatusHelp() string {
 		return "enter/esc close search"
 	}
 	if m.showPreview {
-		return "↑↓ scroll, p/esc close preview"
+		return "↑↓ scroll, pgup/pgdn page, home/end top/bottom, p/esc close preview"
 	}
 	if m.bucket == "" {
 		// Bucket list view

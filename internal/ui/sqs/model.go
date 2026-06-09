@@ -190,8 +190,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "pgup":
 			m.expandedView.PageUp()
 			return m, nil
-		case "pgdn":
+		case "pgdown", "pgdn":
 			m.expandedView.PageDown()
+			return m, nil
+		case "home":
+			m.expandedView.GotoTop()
+			return m, nil
+		case "end":
+			m.expandedView.GotoBottom()
 			return m, nil
 		case "esc", "q":
 			m.expandedMessage = -1
@@ -212,8 +218,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "pgup":
 			m.expandedView.PageUp()
 			return m, nil
-		case "pgdn":
+		case "pgdown", "pgdn":
 			m.expandedView.PageDown()
+			return m, nil
+		case "home":
+			m.expandedView.GotoTop()
+			return m, nil
+		case "end":
+			m.expandedView.GotoBottom()
 			return m, nil
 		case "esc", "q":
 			m.expandedQueue = -1
@@ -236,6 +248,18 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.messageCursor++
 				m.ensureMessageCursorVisible()
 			}
+			return m, nil
+		case "pgup":
+			m.setMessageCursor(m.messageCursor - m.listHeight())
+			return m, nil
+		case "pgdown", "pgdn":
+			m.setMessageCursor(m.messageCursor + m.listHeight())
+			return m, nil
+		case "home":
+			m.setMessageCursor(0)
+			return m, nil
+		case "end":
+			m.setMessageCursor(len(m.messages) - 1)
 			return m, nil
 		case "enter", " ":
 			if len(m.messages) > 0 && m.messageCursor < len(m.messages) {
@@ -286,6 +310,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
+	case "pgup":
+		return m, m.jumpCursor(m.cursor - m.listHeight())
+	case "pgdown", "pgdn":
+		return m, m.jumpCursor(m.cursor + m.listHeight())
+	case "home":
+		return m, m.jumpCursor(0)
+	case "end":
+		return m, m.jumpCursor(m.maxCursorIndex())
 	case "enter":
 		return m.handlePeek()
 	case " ":
@@ -466,6 +498,45 @@ func (m *Model) clampCursor() {
 	m.ensureCursorVisible()
 }
 
+// jumpCursor moves the queue cursor to idx (clamped to the list bounds),
+// updates scroll visibility, and returns the command to refresh attributes,
+// lazy-loading the next page when the cursor lands near the end. Used by page
+// and home/end navigation.
+func (m *Model) jumpCursor(idx int) tea.Cmd {
+	maxIdx := m.maxCursorIndex()
+	if idx > maxIdx {
+		idx = maxIdx
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if idx == m.cursor {
+		return nil
+	}
+	m.cursor = idx
+	m.ensureCursorVisible()
+	cmd := m.onCursorMove()
+	if m.nextToken != nil && !m.loadingMore && m.cursor >= len(m.filteredQueues())-5 {
+		m.loadingMore = true
+		return tea.Batch(cmd, m.loadMoreCmd())
+	}
+	return cmd
+}
+
+// setMessageCursor moves the peeked-message cursor to idx (clamped) and updates
+// scroll visibility. Used by page and home/end navigation in the message view.
+func (m *Model) setMessageCursor(idx int) {
+	last := len(m.messages) - 1
+	if idx > last {
+		idx = last
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	m.messageCursor = idx
+	m.ensureMessageCursorVisible()
+}
+
 func (m Model) currentQueueURL() string {
 	items := m.filteredQueues()
 	if len(items) == 0 || m.cursor >= len(items) {
@@ -590,7 +661,7 @@ func (m Model) StatusHelp() string {
 		return "enter/esc close search"
 	}
 	if m.expandedMessage >= 0 || m.expandedQueue >= 0 {
-		return "↑↓ scroll, esc close"
+		return "↑↓ scroll, pgup/pgdn page, home/end top/bottom, esc close"
 	}
 	if m.viewingMessages {
 		return "↑↓ move, enter expand, y copy body, ctrl+r refresh, esc back"

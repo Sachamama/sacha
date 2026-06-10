@@ -114,7 +114,17 @@ func run(ctx context.Context, flags cliFlags) error {
 		runtime.Service = config.DefaultService()
 	}
 
-	appModel, err := appui.NewModel(loader, services, runtime, awsCfg, &log.Logger)
+	// persist writes the latest selection to disk immediately so a region or
+	// service change survives abnormal termination (terminal closed, SIGHUP,
+	// crash), not just a clean exit.
+	persist := func(rt config.RuntimeConfig) error {
+		fileCfg.LastProfile = rt.Profile
+		fileCfg.LastRegion = rt.Region
+		fileCfg.LastService = rt.Service
+		return config.Save(cfgPath, fileCfg)
+	}
+
+	appModel, err := appui.NewModel(loader, services, runtime, awsCfg, &log.Logger, persist)
 	if err != nil {
 		return err
 	}
@@ -129,10 +139,7 @@ func run(ctx context.Context, flags cliFlags) error {
 		runtime = finalModel.Runtime()
 	}
 
-	fileCfg.LastProfile = runtime.Profile
-	fileCfg.LastRegion = runtime.Region
-	fileCfg.LastService = runtime.Service
-	return config.Save(cfgPath, fileCfg)
+	return persist(runtime)
 }
 
 func sortedServiceNames(services map[string]awsx.Service) string {

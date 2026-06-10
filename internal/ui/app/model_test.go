@@ -294,13 +294,88 @@ func TestNewModelSyncsRuntimeRegionFromConfig(t *testing.T) {
 		Region: "eu-west-1",
 	}
 
-	m, err := NewModel(newFakeLoader(), services, runtime, cfg, nil)
+	m, err := NewModel(newFakeLoader(), services, runtime, cfg, nil, nil)
 	if err != nil {
 		t.Fatalf("NewModel: %v", err)
 	}
 
 	if m.runtime.Region != "eu-west-1" {
 		t.Errorf("NewModel should sync runtime.Region from cfg.Region: got %q, want %q", m.runtime.Region, "eu-west-1")
+	}
+}
+
+func TestModelChangeRegionPersistsImmediately(t *testing.T) {
+	// Region selection must be written to disk as soon as it changes, so it
+	// survives abnormal termination rather than only a clean exit.
+	services := map[string]awsx.Service{
+		"mock": mockService{},
+	}
+
+	runtime := appconfig.RuntimeConfig{
+		Region:  "us-east-1",
+		Service: "mock",
+	}
+	cfg := aws.Config{Region: "us-east-1"}
+
+	var saved []appconfig.RuntimeConfig
+	persist := func(rt appconfig.RuntimeConfig) error {
+		saved = append(saved, rt)
+		return nil
+	}
+
+	m := Model{
+		loader:   newFakeLoader(),
+		services: services,
+		runtime:  runtime,
+		cfg:      cfg,
+		cache:    cache.New(),
+		persist:  persist,
+	}
+	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
+	m.serviceSelector = newOptionSelector(serviceNames(services))
+	if err := m.activateService("mock"); err != nil {
+		t.Fatalf("activateService: %v", err)
+	}
+
+	if _, err := m.changeRegion("eu-west-1"); err != nil {
+		t.Fatalf("changeRegion: %v", err)
+	}
+
+	if len(saved) != 1 {
+		t.Fatalf("persist called %d times, want 1", len(saved))
+	}
+	if saved[0].Region != "eu-west-1" {
+		t.Errorf("persisted region = %q, want %q", saved[0].Region, "eu-west-1")
+	}
+}
+
+func TestModelChangeRegionFailureDoesNotPersist(t *testing.T) {
+	// A failed region change must not write anything to disk.
+	services := map[string]awsx.Service{
+		"mock": mockService{},
+	}
+	runtime := appconfig.RuntimeConfig{Region: "us-east-1", Service: "mock"}
+
+	var calls int
+	m := Model{
+		loader:   newFakeLoader(),
+		services: services,
+		runtime:  runtime,
+		cfg:      aws.Config{Region: "us-east-1"},
+		cache:    cache.New(),
+		persist:  func(appconfig.RuntimeConfig) error { calls++; return nil },
+	}
+	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
+	m.serviceSelector = newOptionSelector(serviceNames(services))
+	if err := m.activateService("mock"); err != nil {
+		t.Fatalf("activateService: %v", err)
+	}
+
+	if _, err := m.changeRegion(""); err == nil {
+		t.Fatal("changeRegion('') should fail")
+	}
+	if calls != 0 {
+		t.Errorf("persist called %d times on failure, want 0", calls)
 	}
 }
 

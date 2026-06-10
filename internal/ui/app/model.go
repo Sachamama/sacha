@@ -33,12 +33,18 @@ type Model struct {
 	regionSelector  optionSelector
 	serviceSelector optionSelector
 
+	// persist saves the runtime selection (region/profile/service) to disk.
+	// It is invoked immediately after a selection change so the choice
+	// survives abnormal termination (terminal closed, SIGHUP, crash), not
+	// just a clean exit. May be nil in tests.
+	persist func(config.RuntimeConfig) error
+
 	width  int
 	height int
 	status string
 }
 
-func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime config.RuntimeConfig, cfg sdkaws.Config, logger *zerolog.Logger) (Model, error) {
+func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime config.RuntimeConfig, cfg sdkaws.Config, logger *zerolog.Logger, persist func(config.RuntimeConfig) error) (Model, error) {
 	// Ensure runtime.Region is always set when cfg.Region is available.
 	if runtime.Region == "" && cfg.Region != "" {
 		runtime.Region = cfg.Region
@@ -54,6 +60,7 @@ func NewModel(loader awsx.Loader, services map[string]awsx.Service, runtime conf
 		cache:      cache.New(),
 		accountID:  accountID,
 		monitoring: monitoring,
+		persist:    persist,
 	}
 	m.regionSelector = newOptionSelectorWithViews(awsRegions, commonRegions)
 	m.serviceSelector = newOptionSelector(serviceNames(services))
@@ -202,7 +209,20 @@ func (m *Model) changeRegion(region string) (tea.Cmd, error) {
 			return tea.WindowSizeMsg{Width: m.width, Height: m.height}
 		})
 	}
+	m.persistRuntime()
 	return tea.Batch(cmds...), nil
+}
+
+// persistRuntime writes the current runtime selection to disk via the persist
+// callback, so the choice is remembered even if the app is terminated
+// abnormally. Save failures are logged but never block the UI.
+func (m *Model) persistRuntime() {
+	if m.persist == nil {
+		return
+	}
+	if err := m.persist(m.runtime); err != nil && m.logger != nil {
+		m.logger.Error().Err(err).Msg("failed to persist runtime config")
+	}
 }
 
 func emptyIf(value, fallback string) string {
@@ -319,6 +339,7 @@ func (m Model) handleServiceSelector(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.status = err.Error()
 			return m, cmd
 		}
+		m.persistRuntime()
 		initCmds := []tea.Cmd{}
 		if m.service != nil {
 			initCmds = append(initCmds, m.service.Init())

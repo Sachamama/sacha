@@ -138,8 +138,12 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.expandedView.ScrollDown(1)
 		case "pgup":
 			m.expandedView.HalfPageUp()
-		case "pgdn":
+		case "pgdown", "pgdn":
 			m.expandedView.HalfPageDown()
+		case "home":
+			m.expandedView.GotoTop()
+		case "end":
+			m.expandedView.GotoBottom()
 		}
 		return m, nil
 	}
@@ -177,6 +181,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+	case "pgup":
+		return m, m.jumpCursor(m.cursor - m.listHeight())
+	case "pgdown", "pgdn":
+		return m, m.jumpCursor(m.cursor + m.listHeight())
+	case "home":
+		return m, m.jumpCursor(0)
+	case "end":
+		return m, m.jumpCursor(len(m.filteredInstances()) - 1)
 	case "enter", " ":
 		// Expand instance details in popup
 		instances := m.filteredInstances()
@@ -294,6 +306,29 @@ func (m *Model) clampCursor() {
 	m.ensureCursorVisible()
 }
 
+// jumpCursor moves the cursor to idx (clamped to the list bounds), updates
+// scroll visibility, and lazy-loads the next page when the cursor lands near
+// the end. Used by page and home/end navigation.
+func (m *Model) jumpCursor(idx int) tea.Cmd {
+	maxIdx := len(m.filteredInstances()) - 1
+	if idx > maxIdx {
+		idx = maxIdx
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if idx == m.cursor {
+		return nil
+	}
+	m.cursor = idx
+	m.ensureCursorVisible()
+	if m.nextToken != nil && !m.loadingMore && m.cursor >= len(m.filteredInstances())-5 {
+		m.loadingMore = true
+		return m.loadMoreInstancesCmd()
+	}
+	return nil
+}
+
 func (m Model) filteredInstances() []ec2.Instance {
 	if m.search.Value() == "" {
 		return m.instances
@@ -372,7 +407,7 @@ func (m Model) Searching() bool {
 // StatusHelp returns context-aware help text for the status bar.
 func (m Model) StatusHelp() string {
 	if m.expandedInst >= 0 {
-		return "↑↓ scroll, pgup/pgdn page, esc close"
+		return "↑↓ scroll, pgup/pgdn page, home/end top/bottom, esc close"
 	}
 	if m.searching {
 		return "enter/esc close search"

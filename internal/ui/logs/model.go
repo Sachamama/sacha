@@ -428,11 +428,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.expandedView.ScrollDown(1)
 			case "pgup":
 				m.expandedView.HalfPageUp()
-			case "pgdn":
+			case "pgdown", "pgdn":
 				m.expandedView.HalfPageDown()
-			case "g":
+			case "g", "home":
 				m.expandedView.GotoTop()
-			case "G":
+			case "G", "end":
 				m.expandedView.GotoBottom()
 			case "y":
 				evts := m.filteredEvents()
@@ -522,6 +522,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, m.loadMoreLogGroupsCmd()
 					}
 				}
+			}
+		case "pgup":
+			if m.tailing && m.focus == panelTail {
+				m.jumpEventCursor(m.eventCursor - m.eventPageSize())
+			} else {
+				return m, m.jumpGroupCursor(m.cursor - m.listHeight())
+			}
+		case "pgdown", "pgdn":
+			if m.tailing && m.focus == panelTail {
+				m.jumpEventCursor(m.eventCursor + m.eventPageSize())
+			} else {
+				return m, m.jumpGroupCursor(m.cursor + m.listHeight())
+			}
+		case "home":
+			if m.tailing && m.focus == panelTail {
+				m.jumpEventCursor(0)
+			} else {
+				return m, m.jumpGroupCursor(0)
+			}
+		case "end":
+			if m.tailing && m.focus == panelTail {
+				m.jumpEventCursor(len(m.filteredEvents()) - 1)
+			} else {
+				return m, m.jumpGroupCursor(len(m.filteredGroups()) - 1)
 			}
 		case "/":
 			if !m.tailing || m.focus == panelGroups {
@@ -1152,6 +1176,61 @@ func (m *Model) ensureCursorVisible() {
 	if m.listOffset < 0 {
 		m.listOffset = 0
 	}
+}
+
+// jumpGroupCursor moves the log-group cursor to idx (clamped to the list
+// bounds), updates scroll visibility, and lazy-loads the next page when the
+// cursor lands near the end. Used by page and home/end navigation.
+func (m *Model) jumpGroupCursor(idx int) tea.Cmd {
+	last := len(m.filteredGroups()) - 1
+	if idx > last {
+		idx = last
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if last < 0 || idx == m.cursor {
+		return nil
+	}
+	m.cursor = idx
+	m.ensureCursorVisible()
+	if !m.tailing && m.nextGroupToken != nil && !m.loadingMore && m.cursor >= len(m.filteredGroups())-5 {
+		m.loadingMore = true
+		return m.loadMoreLogGroupsCmd()
+	}
+	return nil
+}
+
+// eventPageSize returns the number of event rows that fit in the tail viewport,
+// used as the page increment for page-up/down navigation.
+func (m *Model) eventPageSize() int {
+	if m.view.Height > 1 {
+		return m.view.Height
+	}
+	return 1
+}
+
+// jumpEventCursor moves the tail-event cursor to idx (clamped to the event
+// list), re-renders, and keeps the viewport pinned to the cursor. Following
+// (auto-scroll) re-engages only when the cursor reaches the latest event. Used
+// by page and home/end navigation while the tail panel is focused.
+func (m *Model) jumpEventCursor(idx int) {
+	evts := m.filteredEvents()
+	last := len(evts) - 1
+	if last < 0 {
+		m.eventCursor = 0
+		return
+	}
+	if idx > last {
+		idx = last
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	m.eventCursor = idx
+	m.autoScroll = m.eventCursor >= last
+	m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
+	m.ensureEventCursorVisible()
 }
 
 // eventContentOffset returns the number of header lines rendered before event

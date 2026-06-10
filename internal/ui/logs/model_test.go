@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sachamama/sacha/internal/logs"
 )
 
@@ -75,6 +76,85 @@ func TestTailFollowPinsToBottom(t *testing.T) {
 	// The latest event should sit on the last visible row of the viewport.
 	if row := m.eventCursor - m.view.YOffset; row != m.view.Height-1 {
 		t.Fatalf("expected latest event on bottom row %d, got row %d", m.view.Height-1, row)
+	}
+}
+
+// TestTailEventPageAndJumpKeys verifies page-up/down and home/end navigation
+// over tail events, including how following (auto-scroll) re-engages only at
+// the latest event.
+func TestTailEventPageAndJumpKeys(t *testing.T) {
+	m := newTailModel(t)
+	m.autoScroll = true
+	m = m.update(t, tailUpdateMsg{events: makeEvents(0, 100), nextStart: time.Now()})
+	if m.eventCursor != 99 {
+		t.Fatalf("expected cursor pinned to last event 99, got %d", m.eventCursor)
+	}
+
+	// Home jumps to the first event and stops following.
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyHome})
+	if m.eventCursor != 0 {
+		t.Fatalf("home: expected cursor 0, got %d", m.eventCursor)
+	}
+	if m.autoScroll {
+		t.Fatal("home: expected auto-scroll disabled")
+	}
+
+	// PageDown advances by one viewport page.
+	page := m.eventPageSize()
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyPgDown})
+	if m.eventCursor != page {
+		t.Fatalf("pgdown: expected cursor %d, got %d", page, m.eventCursor)
+	}
+
+	// PageUp returns to the top.
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyPgUp})
+	if m.eventCursor != 0 {
+		t.Fatalf("pgup: expected cursor 0, got %d", m.eventCursor)
+	}
+
+	// End jumps to the latest event and re-engages following.
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyEnd})
+	if m.eventCursor != 99 {
+		t.Fatalf("end: expected cursor 99, got %d", m.eventCursor)
+	}
+	if !m.autoScroll {
+		t.Fatal("end: expected auto-scroll re-enabled at latest event")
+	}
+}
+
+// TestGroupListPageAndJumpKeys verifies page-up/down and home/end navigation
+// over the log-group list when not tailing.
+func TestGroupListPageAndJumpKeys(t *testing.T) {
+	m := Model{
+		selected:      map[string]bool{},
+		expandedEvent: -1,
+		pollInterval:  defaultPollInterval,
+		width:         120,
+		height:        40,
+	}
+	for i := 0; i < 100; i++ {
+		m.logGroups = append(m.logGroups, logs.LogGroup{Name: fmt.Sprintf("/g/%03d", i)})
+	}
+
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyEnd})
+	if m.cursor != 99 {
+		t.Fatalf("end: expected cursor 99, got %d", m.cursor)
+	}
+
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyHome})
+	if m.cursor != 0 {
+		t.Fatalf("home: expected cursor 0, got %d", m.cursor)
+	}
+
+	page := m.listHeight()
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyPgDown})
+	if m.cursor != page {
+		t.Fatalf("pgdown: expected cursor %d, got %d", page, m.cursor)
+	}
+
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyPgUp})
+	if m.cursor != 0 {
+		t.Fatalf("pgup: expected cursor 0, got %d", m.cursor)
 	}
 }
 

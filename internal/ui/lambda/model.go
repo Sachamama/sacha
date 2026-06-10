@@ -150,8 +150,12 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.expandedView.ScrollDown(1)
 		case "pgup":
 			m.expandedView.HalfPageUp()
-		case "pgdn":
+		case "pgdown", "pgdn":
 			m.expandedView.HalfPageDown()
+		case "home":
+			m.expandedView.GotoTop()
+		case "end":
+			m.expandedView.GotoBottom()
 		}
 		return m, nil
 	}
@@ -192,6 +196,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
+	case "pgup":
+		return m, m.jumpCursor(m.cursor - m.listHeight())
+	case "pgdown", "pgdn":
+		return m, m.jumpCursor(m.cursor + m.listHeight())
+	case "home":
+		return m, m.jumpCursor(0)
+	case "end":
+		return m, m.jumpCursor(len(m.filteredFunctions()) - 1)
 	case "enter", " ":
 		// Expand function details in popup
 		functions := m.filteredFunctions()
@@ -315,6 +327,31 @@ func (m *Model) clampCursor() {
 	m.ensureCursorVisible()
 }
 
+// jumpCursor moves the cursor to idx (clamped to the list bounds), updates
+// scroll visibility, and returns the command to refresh details, lazy-loading
+// the next page when the cursor lands near the end. Used by page and home/end
+// navigation.
+func (m *Model) jumpCursor(idx int) tea.Cmd {
+	maxIdx := len(m.filteredFunctions()) - 1
+	if idx > maxIdx {
+		idx = maxIdx
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if idx == m.cursor {
+		return nil
+	}
+	m.cursor = idx
+	m.ensureCursorVisible()
+	cmd := m.onCursorMove()
+	if m.nextToken != nil && !m.loadingMore && m.cursor >= len(m.filteredFunctions())-5 {
+		m.loadingMore = true
+		return tea.Batch(cmd, m.loadMoreFunctionsCmd())
+	}
+	return cmd
+}
+
 func (m Model) currentFunctionName() string {
 	functions := m.filteredFunctions()
 	if len(functions) == 0 || m.cursor >= len(functions) {
@@ -404,7 +441,7 @@ func (m Model) Searching() bool {
 // StatusHelp returns context-aware help text for the status bar.
 func (m Model) StatusHelp() string {
 	if m.expandedFunc >= 0 {
-		return "↑↓ scroll, pgup/pgdn page, esc close"
+		return "↑↓ scroll, pgup/pgdn page, home/end top/bottom, esc close"
 	}
 	if m.searching {
 		return "enter/esc close search"

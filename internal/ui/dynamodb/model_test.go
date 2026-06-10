@@ -2,6 +2,7 @@ package dynamodb
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -123,6 +124,50 @@ func TestCursorNavigation(t *testing.T) {
 	m = sendKey(m, "k")
 	if m.cursor != 0 {
 		t.Errorf("expected cursor at 0, got %d", m.cursor)
+	}
+}
+
+func TestPageAndJumpNavigation(t *testing.T) {
+	tables := make([]dynamodb.Table, 100)
+	for i := range tables {
+		tables[i] = dynamodb.Table{Name: fmt.Sprintf("t%03d", i)}
+	}
+	m := newTestModel(tables)
+
+	// End jumps to the last item.
+	m = sendSpecialKey(m, tea.KeyEnd)
+	if m.cursor != 99 {
+		t.Fatalf("end: expected cursor 99, got %d", m.cursor)
+	}
+
+	// Home jumps back to the first item.
+	m = sendSpecialKey(m, tea.KeyHome)
+	if m.cursor != 0 {
+		t.Fatalf("home: expected cursor 0, got %d", m.cursor)
+	}
+
+	// PageDown advances by a full page.
+	page := m.listHeight()
+	m = sendSpecialKey(m, tea.KeyPgDown)
+	if m.cursor != page {
+		t.Fatalf("pgdown: expected cursor %d, got %d", page, m.cursor)
+	}
+
+	// PageUp returns to the top (single page back from page-sized offset).
+	m = sendSpecialKey(m, tea.KeyPgUp)
+	if m.cursor != 0 {
+		t.Fatalf("pgup: expected cursor 0, got %d", m.cursor)
+	}
+}
+
+func TestPageNavigationClampsAndNoopsWhenEmpty(t *testing.T) {
+	// Empty list: page/jump keys must not move the cursor or panic.
+	m := newTestModel(nil)
+	for _, k := range []tea.KeyType{tea.KeyEnd, tea.KeyHome, tea.KeyPgDown, tea.KeyPgUp} {
+		m = sendSpecialKey(m, k)
+		if m.cursor != 0 {
+			t.Fatalf("expected cursor to stay 0 on empty list, got %d", m.cursor)
+		}
 	}
 }
 
@@ -486,14 +531,14 @@ func TestStatusHelp(t *testing.T) {
 
 	// Table list view
 	help := m.StatusHelp()
-	if help != "↑↓ move, / search, enter open, pgup/pgdn details, y copy ARN, ctrl+r refresh" {
+	if help != "↑↓ move, pgup/pgdn page, / search, enter open, y copy ARN, ctrl+r refresh" {
 		t.Errorf("unexpected help: %q", help)
 	}
 
 	// Items view
 	m.table = "test"
 	help = m.StatusHelp()
-	if help != "↑↓ move, / search, enter expand, pgup/pgdn details, y copy ARN, ctrl+r refresh, esc/h back" {
+	if help != "↑↓ move, pgup/pgdn page, / search, enter expand, y copy ARN, ctrl+r refresh, esc/h back" {
 		t.Errorf("unexpected help: %q", help)
 	}
 
@@ -508,7 +553,7 @@ func TestStatusHelp(t *testing.T) {
 	m.searching = false
 	m.expandedItem = 0
 	help = m.StatusHelp()
-	if help != "↑↓ scroll, pgup/pgdn page, esc close" {
+	if help != "↑↓ scroll, pgup/pgdn page, home/end top/bottom, esc close" {
 		t.Errorf("unexpected help: %q", help)
 	}
 }

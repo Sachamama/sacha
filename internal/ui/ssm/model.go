@@ -195,8 +195,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "pgup":
 			m.expandedView.PageUp()
 			return m, nil
-		case "pgdn":
+		case "pgdown", "pgdn":
 			m.expandedView.PageDown()
+			return m, nil
+		case "home":
+			m.expandedView.GotoTop()
+			return m, nil
+		case "end":
+			m.expandedView.GotoBottom()
 			return m, nil
 		case "esc", "q":
 			m.expandedParam = -1
@@ -228,6 +234,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
+	case "pgup":
+		return m, m.jumpCursor(m.cursor - m.listHeight())
+	case "pgdown", "pgdn":
+		return m, m.jumpCursor(m.cursor + m.listHeight())
+	case "home":
+		return m, m.jumpCursor(0)
+	case "end":
+		return m, m.jumpCursor(m.maxCursorIndex())
 	case "enter", " ":
 		return m.handleEnter()
 	case "backspace", "h", "esc":
@@ -391,6 +405,31 @@ func (m *Model) clampCursor() {
 	m.ensureCursorVisible()
 }
 
+// jumpCursor moves the cursor to idx (clamped to the list bounds), updates
+// scroll visibility, and returns the command to refresh details, lazy-loading
+// the next page when the cursor lands near the end. Used by page and home/end
+// navigation.
+func (m *Model) jumpCursor(idx int) tea.Cmd {
+	maxIdx := m.maxCursorIndex()
+	if idx > maxIdx {
+		idx = maxIdx
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if idx == m.cursor {
+		return nil
+	}
+	m.cursor = idx
+	m.ensureCursorVisible()
+	cmd := m.onCursorMove()
+	if m.nextToken != nil && !m.loadingMore && m.cursor >= len(m.filteredParams())-5 {
+		m.loadingMore = true
+		return tea.Batch(cmd, m.loadMoreCmd())
+	}
+	return cmd
+}
+
 func (m Model) currentParamName() string {
 	items := m.filteredParams()
 	if len(items) == 0 || m.cursor >= len(items) {
@@ -536,7 +575,7 @@ func (m Model) StatusHelp() string {
 		return "enter/esc close search"
 	}
 	if m.expandedParam >= 0 {
-		return "↑↓ scroll, esc close"
+		return "↑↓ scroll, pgup/pgdn page, home/end top/bottom, esc close"
 	}
 	if len(m.path) == 0 {
 		return "↑↓ move, / search, enter open, y copy, ctrl+r refresh"

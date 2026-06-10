@@ -213,9 +213,9 @@ func shortGroupName(name string) string {
 	return name
 }
 
-// localTimestamp formats a timestamp as HH:MM in the local timezone.
+// localTimestamp formats a timestamp as HH:MM:SS in the local timezone.
 func localTimestamp(ts time.Time) string {
-	return ts.Local().Format("15:04")
+	return ts.Local().Format("15:04:05")
 }
 
 // highlightMessage applies highlighting to a message for the given jq-style field paths.
@@ -251,7 +251,7 @@ func renderEventsPlain(events []logs.TailEvent, cursor, width int, showCursor bo
 	var b strings.Builder
 
 	// Calculate column widths
-	timeWidth := 5 // enough for "HH:MM"
+	timeWidth := 8 // enough for "HH:MM:SS"
 	groupWidth := 20
 	separators := 6 // " │ " twice
 	pointer := 1    // "▶" or " "

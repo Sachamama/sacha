@@ -375,7 +375,7 @@ In list views, page-down and `end` trigger lazy-loading of the next page when th
 - Right panel (tail): event navigation, expand, highlight, filter
 - Plain view columns: TIMESTAMP (local time), GROUP (short name), MESSAGE
 - Log group names show only the last path segment (e.g., `/aws/lambda/my-func` → `my-func`)
-- Timestamps: each event shows `HH:MM` in the local timezone
+- Timestamps: each event shows `HH:MM:SS` in the local timezone
 - `↑/↓` or `j/k` - Navigate within focused panel
 - `enter` or `space` - Expand selected event (popup with formatted JSON) when tail panel focused
 - `H` - Open highlight input (jq-style field paths, e.g. `.level .message .statusCode`)

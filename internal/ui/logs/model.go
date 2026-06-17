@@ -674,6 +674,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.view.SetContent(m.renderEventsContent(true))
 				m.ensureEventCursorVisible()
 			}
+		case "C":
+			// Clear the tail buffer while continuing to follow new events.
+			if m.tailing {
+				m.events = nil
+				m.eventCursor = 0
+				m.autoScroll = true
+				m.scrollX = 0
+				m.view.SetContent(m.renderEventsContent(m.focus == panelTail))
+				m.ensureEventCursorVisible()
+				m.statusLine = "Cleared tail buffer"
+			}
 		case "x":
 			// Stop watching and reset Log panel
 			if m.tailing {
@@ -1095,12 +1106,12 @@ func (m Model) StatusHelp() string {
 			hlInfo = ", H highlight"
 		}
 		if m.fullscreen {
-			return fmt.Sprintf("↑↓ move, ←→ scroll, enter expand, y copy%s, f exit fullscreen, x/q stop", hlInfo)
+			return fmt.Sprintf("↑↓ move, ←→ scroll, enter expand, y copy%s, C clear, f exit fullscreen, x/q stop", hlInfo)
 		}
 		if m.focus == panelGroups {
-			return "↑↓ move, / search, space select, a all, y copy, tab/→ switch, f fullscreen, x/q stop"
+			return "↑↓ move, / search, space select, a all, y copy, C clear, tab/→ switch, f fullscreen, x/q stop"
 		}
-		return fmt.Sprintf("↑↓ move, enter expand, y copy%s, tab/← switch, f fullscreen, x/q stop", hlInfo)
+		return fmt.Sprintf("↑↓ move, enter expand, y copy%s, C clear, tab/← switch, f fullscreen, x/q stop", hlInfo)
 	}
 	help := "↑↓ move, / search, space select, a all, c create, d delete, R retention, t tail, y copy, ctrl+r refresh"
 	if m.monitoring.IsMonitoring {

@@ -380,6 +380,7 @@ In list views, page-down and `end` trigger lazy-loading of the next page when th
 - `enter` or `space` - Expand selected event (popup with formatted JSON) when tail panel focused
 - `H` - Open highlight input (jq-style field paths, e.g. `.level .message .statusCode`)
 - `F` - Toggle filter mode: when active, only events containing highlighted JSON fields are shown
+- `C` - Clear the tail buffer (empties the displayed events and keeps following new ones)
 - `x` - Stop tailing (stops watching logs and resets the log panel, same behavior as `q`)
 - `f` - Toggle fullscreen mode (focuses tail panel, hides groups panel)
 - `←/→` or `h/l` - Scroll horizontally (fullscreen mode only, for viewing wide log lines)
@@ -392,7 +393,7 @@ In list views, page-down and `end` trigger lazy-loading of the next page when th
 - Press `F` to toggle filtering: only events whose JSON contains at least one highlighted field are shown
 - Press `F` again to disable filtering and show all events
 - Clearing the highlight input (submitting empty) removes all highlights and disables filtering
-- StatusHelp text (tailing, with highlight active): `↑↓ move, enter expand, H highlight, F filter[on/off], tab/← switch, f fullscreen, x/q stop`
+- StatusHelp text (tailing, with highlight active): `↑↓ move, enter expand, H highlight, F filter[on/off], C clear, tab/← switch, f fullscreen, x/q stop`
 
 **Expanded Event Popup**
 - Accessed by pressing `enter` or `space` on a selected log event while tailing

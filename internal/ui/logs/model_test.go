@@ -182,6 +182,43 @@ func TestTailPreservesScrollOnAppend(t *testing.T) {
 	}
 }
 
+// TestTailClearBuffer verifies that pressing "C" while tailing empties the
+// event buffer, re-engages following, and keeps tailing active so new events
+// continue to arrive.
+func TestTailClearBuffer(t *testing.T) {
+	m := newTailModel(t)
+	m.autoScroll = true
+	m = m.update(t, tailUpdateMsg{events: makeEvents(0, 100), nextStart: time.Now()})
+
+	// Scroll up so following is disengaged before clearing.
+	m.autoScroll = false
+	m.eventCursor = 40
+
+	m = m.update(t, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'C'}})
+
+	if len(m.events) != 0 {
+		t.Fatalf("expected events cleared, got %d", len(m.events))
+	}
+	if m.eventCursor != 0 {
+		t.Fatalf("expected cursor reset to 0, got %d", m.eventCursor)
+	}
+	if !m.autoScroll {
+		t.Fatal("expected auto-scroll re-enabled after clear")
+	}
+	if !m.tailing {
+		t.Fatal("expected tailing to remain active after clear")
+	}
+
+	// New events arriving after a clear are shown and followed.
+	m = m.update(t, tailUpdateMsg{events: makeEvents(200, 5), nextStart: time.Now()})
+	if len(m.events) != 5 {
+		t.Fatalf("expected 5 events after clear, got %d", len(m.events))
+	}
+	if m.eventCursor != 4 {
+		t.Fatalf("expected cursor following to 4, got %d", m.eventCursor)
+	}
+}
+
 // TestTailPreservesScrollOnTrim verifies that when the buffer overflows and is
 // trimmed from the front, the user's scroll position is preserved by anchoring
 // on the event under the cursor rather than a raw index.
